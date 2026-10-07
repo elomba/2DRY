@@ -2,6 +2,19 @@
 
 All notable changes to the `twoDdipRY` package are documented in this file.
 
+## [2026-10-07] - ANSI Terminal Coloring & thermo.dat Reorganization
+
+### Added
+- **ANSI Terminal Syntax Coloring**:
+  - Introduced `Module color_mod` containing standard ANSI escape parameters (`c_b_cyan`, `c_b_yellow`, `c_b_green`, `c_b_red`, `c_b_white`, `c_dim`, `c_reset`).
+  - Colorized program banners, parameter boxes, iteration progress updates, and final summary tables.
+  - Added semantic color coding to the Bhatia–Thornton spinodal stability indicator (`STABLE` in green, `NEAR SPINODAL MARGIN` in yellow, `UNSTABLE / DEMIXING` in red).
+  - Ensured pure terminal stdout coloring without leaking ANSI escape codes into data files (`thermo.dat`, `gr.dat`, `sq.dat`, etc.).
+- **Organized `thermo.dat` Output & 1-to-1 Column Alignment**:
+  - Added a comprehensive commented metadata header (`#`) defining all 15 columns with physical descriptions.
+  - Reorganized data columns into fixed 14-character right-aligned float fields (`(1x, 15(1x, f14.6))`), matching header labels and dashed underlines.
+  - Computed and formatted `scale_21 = (S22(0)/S11(0))^(1/4)` consistently in column 11.
+
 ## [2026-10-07] - Output Beautification & Diagnostics Refactoring
 
 ### Added

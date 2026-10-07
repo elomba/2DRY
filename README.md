@@ -110,39 +110,41 @@ Each line corresponds to specific program variables:
 
 ## 6. Output Files
 
-- **`thermo.dat`** (Unit 88): Contains 15 columns:
-  1. $\rho_{total}$ (total density)
-  2. $x_2$ (mole fraction)
-  3. $U / Nk_BT$ (internal energy)
-  4. $P / (\rho k_BT)$ (virial compressibility factor)
-  5. $\chi^{-1}(0)$ (inverse isothermal compressibility)
-  6. $\partial P^* / \partial \rho$ (virial pressure derivative)
-  7. $\eta$ (Rogers–Young parameter)
-  8. $S(q)_{max}$ (maximum of total structure factor)
-  9. $S(0)$ (structure factor at origin)
-  10. $S(0) / S(q)_{max}$
-  11. Packing ratio / scaling factor
-  12. $S_2^{ex}$ (excess two-body entropy)
-  13. $\lambda_1$ (minimum eigenvalue of fluctuation matrix; $\lambda_1 \to 0$ signals spinodal boundary)
-  14. $\lambda_2$ (maximum eigenvalue of fluctuation matrix)
-  15. $1 / S_{cc}(0)$ (inverse concentration fluctuation at origin; vanishes at demixing critical point)
+- **`thermo.dat`** (Unit 88): Comprehensive thermodynamic summary table with a complete `#`-commented metadata header explaining every column, followed by 1-to-1 character-aligned columns (14 characters per column, right-aligned formatted as `(1x, 15(1x, f14.6))`):
+  1. `rho_tot` : Total number density $\rho = \rho_1 + \rho_2$
+  2. `x2` : Mole fraction of species 2 ($x_2 = \rho_2 / \rho_{tot}$)
+  3. `U/NkT` : Reduced internal energy per particle $U / (N k_B T)$
+  4. `P/(rho*kT)` : Virial compressibility factor $Z = P / (\rho k_B T)$
+  5. `chi^-1` : Inverse isothermal compressibility from compressibility route ($\chi^{-1} = 1 - \hat{c}(0)$)
+  6. `dP*/drho` : Virial pressure derivative with respect to density $\partial P^* / \partial \rho$
+  7. `eta` : Rogers–Young closure consistency parameter $\eta$
+  8. `Sq_max` : Maximum peak of total structure factor $S(q)_{max}$
+  9. `Sq_0` : Zero-wavevector limit of total structure factor $S(q=0)$
+  10. `Sq0/Sqmax` : Long-wavelength fluctuation ratio $S(0) / S(q)_{max}$
+  11. `scale_21` : Effective core scaling factor $(S_{22}(0) / S_{11}(0))^{1/4}$
+  12. `S2_ex/kB` : Excess two-body entropy per particle $S_2^{ex} / k_B$
+  13. `lambda1` : Minimum eigenvalue of Bhatia–Thornton fluctuation matrix ($\lambda_1 \to 0$ signals spinodal boundary)
+  14. `lambda2` : Maximum eigenvalue of Bhatia–Thornton fluctuation matrix
+  15. `1/Scc(0)` : Inverse concentration fluctuation at origin (vanishes at critical demixing point)
 - **`gr.dat`** (Unit 22): Radial distribution functions: column 1 is $r$, columns 2–5 are $g_{11}(r), g_{12}(r), g_{21}(r), g_{22}(r)$.
 - **`sq.dat`** (Unit 23): Structure factors: wavevector $q$, reduced wavevector $q/\sqrt{\rho}$, $S_{jk}(q)$, total $S(q)$, form-factor folded structure factors, and concentration structure factor $S_{cc}(q)$.
+- **`sqopt.dat`** (Unit 230): Form-factor folded optical structure factors.
+- **`srq.dat`** (Unit 95): Scaled partial structure factors $(S_{jk}(q)\rho/\rho_j)$.
 - **`solout.dat`**: Restart vector $s_{SR}(r; j, k)$ for subsequent runs with `iStart = 1`.
 
 ---
 
 ## 7. Terminal Output & Diagnostics
 
-When executed, `2DdipRYN_final` prints a structured, readable report to standard output:
+When executed, `2DdipRYN_final` prints a structured, ANSI syntax-colored report to standard output (all data files remain clean and free of escape codes):
 
-1. **System Configuration**: Displays grid parameters ($N_r$, $r_{max}$, $q_{max}$), interaction parameters ($\Gamma$, $z_i$, $\lambda_{12}$, $\sigma_{jk}$, $\gamma_{jk}$), solver tolerances, and density/composition scan ranges.
+1. **System Configuration**: Displays grid parameters ($N_r$, $r_{max}$, $q_{max}$), interaction parameters ($\Gamma$, $z_i$, $\lambda_{12}$, $\sigma_{jk}$, $\gamma_{jk}$), solver tolerances, and density/composition scan ranges highlighted in cyan and yellow.
 2. **Convergence Progress**:
-   - Displays periodic Picard iteration convergence (every 50 iterations) and final iteration count on the central physical state $\rho$.
-   - Displays step-by-step Newton–Raphson consistency progress ($\eta$, $\chi^{-1}$, $\partial P^*/\partial\rho$, consistency discrepancy $f_{opt}$, and relative error).
+   - Displays periodic Picard iteration convergence (every 50 iterations) and final iteration count on the central physical state $\rho$ in cyan/yellow/white.
+   - Displays step-by-step Newton–Raphson consistency progress ($\eta$, $\chi^{-1}$, $\partial P^*/\partial\rho$, consistency discrepancy $f_{opt}$, and relative error) with color-coded tags.
 3. **State Point Results**:
    - **Thermodynamics & Equation of State**: Total compressibility factor $Z = P/(\rho k_BT)$ decomposed into hard disk ($Z_{HD}$) and dipolar ($Z_{dip}$) virials, reduced internal energy $U/(Nk_BT)$, and excess two-body entropy $S_2^{ex}/k_B$.
    - **Thermodynamic Consistency & Response**: Rogers–Young parameter $\eta$, inverse compressibility $\chi^{-1}$, virial pressure derivative $\partial P^*/\partial\rho$, isothermal compressibility $\chi_T = \partial\rho/\partial P^*$, and consistency discrepancy.
-   - **Fluctuation & Spinodal Stability (Bhatia–Thornton)**: Response matrix ($M_{rr}, M_{cc}, M_{rc}$), spinodal eigenvalues ($\lambda_1, \lambda_2$), physical stability classification (`STABLE`, `NEAR SPINODAL MARGIN`, or `UNSTABLE`), and concentration fluctuation $S_{cc}(0)$ and $1/S_{cc}(0)$.
+   - **Fluctuation & Spinodal Stability (Bhatia–Thornton)**: Response matrix ($M_{rr}, M_{cc}, M_{rc}$), spinodal eigenvalues ($\lambda_1, \lambda_2$), physical stability classification (`STABLE` in bold green, `NEAR SPINODAL MARGIN` in bold yellow, or `UNSTABLE / DEMIXING` in bold red), and concentration fluctuation $S_{cc}(0)$ and $1/S_{cc}(0)$.
    - **Structure Factor Highlights**: Total peak $S(q)_{max}$, zero-wavevector limit $S(0)$, ratio $S(0)/S(q)_{max}$, disk scaling ratio, and optical form-factor ratio $R_{01}/R_{02}$.
-4. **Summary Table**: Tabulates all computed $(\rho, x_2)$ state points with their key thermodynamic and stability indices at program termination.
+4. **Summary Table**: Colorized multi-column table summarizing all computed $(\rho, x_2)$ state points with their key thermodynamic and stability indices at program termination.

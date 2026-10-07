@@ -602,6 +602,28 @@ Module datatrans
   real (kind=8) :: W(mxNr,mxNr), BJ1sq(mxNr), root(mxNr)
 End Module datatrans
 
+Module color_mod
+  implicit none
+  character(len=*), parameter :: c_reset   = achar(27)//'[0m'
+  character(len=*), parameter :: c_bold    = achar(27)//'[1m'
+  character(len=*), parameter :: c_dim     = achar(27)//'[2m'
+  character(len=*), parameter :: c_gray    = achar(27)//'[90m'
+  character(len=*), parameter :: c_red     = achar(27)//'[31m'
+  character(len=*), parameter :: c_green   = achar(27)//'[32m'
+  character(len=*), parameter :: c_yellow  = achar(27)//'[33m'
+  character(len=*), parameter :: c_blue    = achar(27)//'[34m'
+  character(len=*), parameter :: c_magenta = achar(27)//'[35m'
+  character(len=*), parameter :: c_cyan    = achar(27)//'[36m'
+  character(len=*), parameter :: c_white   = achar(27)//'[37m'
+  character(len=*), parameter :: c_b_red   = achar(27)//'[1;31m'
+  character(len=*), parameter :: c_b_green = achar(27)//'[1;32m'
+  character(len=*), parameter :: c_b_yellow= achar(27)//'[1;33m'
+  character(len=*), parameter :: c_b_blue  = achar(27)//'[1;34m'
+  character(len=*), parameter :: c_b_mag   = achar(27)//'[1;35m'
+  character(len=*), parameter :: c_b_cyan  = achar(27)//'[1;36m'
+  character(len=*), parameter :: c_b_white = achar(27)//'[1;37m'
+End Module color_mod
+
 
 Program twoDdipRY
   !     N-component  HDs+1/r**3 in 2D, from 2008's F. Lado code.
@@ -622,6 +644,7 @@ Program twoDdipRY
   !                                     = sqrt(rho(j)*rho(k))*FTf(q;j,k),
   !           where rhoHat = (2.0*pi*rMax/qMax)*rho.
   use datatrans
+  use color_mod
   use bessel_slatec_mod, only : dbsi0e, dbsi1e
   implicit none
   integer :: ipiv(nsp)
@@ -664,18 +687,18 @@ Program twoDdipRY
   real(kind=8) :: res_rho(maxStates), res_x2(maxStates), res_P(maxStates), &
                   res_U(maxStates), res_xc(maxStates), res_dPr(maxStates), &
                   res_eta(maxStates), res_lamb1(maxStates), &
-                  res_invScc(maxStates), res_sqmax(maxStates)
+                  res_invScc(maxStates), res_sqmax(maxStates), scale_21
   real(kind=8), external :: E1, mk
   logical :: unfound, osig, solve
   lwork = 2*nsp
   nStateDone = 0
 
   !     Program banner
-  write (*,"(/'================================================================================')")
-  write (*,"('                                   twoDdipRY')")
-  write (*,"('        2D Dipolar Hard Disk Liquid-State Integral Equation Solver')")
-  write (*,"('          Rogers-Young (RY) Closure with Thermodynamic Consistency')")
-  write (*,"('================================================================================')")
+  write (*,"(/'', a, '================================================================================', a)") c_b_cyan, c_reset
+  write (*,"(a, '                                   twoDdipRY', a)") c_b_white, c_reset
+  write (*,"(a, '        2D Dipolar Hard Disk Liquid-State Integral Equation Solver', a)") c_cyan, c_reset
+  write (*,"(a, '          Rogers-Young (RY) Closure with Thermodynamic Consistency', a)") c_cyan, c_reset
+  write (*,"(a, '================================================================================', a)") c_b_cyan, c_reset
 
   !     Read input parameters.
   write(fname,"('2DdipHD',i1,'c_map.dat')") nsp
@@ -684,7 +707,7 @@ Program twoDdipRY
   read (2,*) Nr, iStart, newW, &
        Gamma, blend0, rmsMax, rmscut
   if (Nr > mxNr) Then
-     write (*,"(' *** Error: Nr (', i0, ') exceeds maximum mxNr (', i0, ')')") Nr, mxNr
+     write (*,"(a, ' *** Error: Nr (', i0, ') exceeds maximum mxNr (', i0, ')', a)") c_b_red, Nr, mxNr, c_reset
      stop
   Endif
   read (2,*) nrt
@@ -719,27 +742,56 @@ Program twoDdipRY
        & charged 1/r^3 particles' &
        /' Input data:'/6i5/5f10.5)
 30 format (a60)
+
+  !     Open and format thermo.dat with comprehensive metadata and aligned columns
   open(88,file="thermo.dat")
-  write(88,"(5x,'# rho     xf         u/Nkt    p/(kT rho)      xc(0)    dP*/d rho    eta&
-       &          sqmax       sq0       sq0/sqmax     packing      S2e&
-       &x         l1              l2         1/Scc(0)')")     
+  write(88,"(a)") '#============================================================================================================================================================================================================================='
+  write(88,"(a)") '# 2D Dipolar Hard Disk Integral Equation Solver (twoDdipRY)'
+  write(88,"(a)") '# Ornstein-Zernike equation with Rogers-Young (RY) closure'
+  write(88,"(a)") '#'
+  write(88,"(a)") '# Column Definitions:'
+  write(88,"(a)") '#   [ 1] rho_tot   : Total number density rho = rho1 + rho2'
+  write(88,"(a)") '#   [ 2] x2        : Mole fraction of species 2 (x2 = rho2 / rho_tot)'
+  write(88,"(a)") '#   [ 3] U/NkT     : Reduced internal energy per particle'
+  write(88,"(a)") '#   [ 4] P/(rho*kT): Virial compressibility factor Z = P / (rho * k_B * T)'
+  write(88,"(a)") '#   [ 5] chi^-1    : Inverse isothermal compressibility (compressibility route: 1 - c_hat(0))'
+  write(88,"(a)") '#   [ 6] dP*/drho  : Virial pressure derivative with respect to density'
+  write(88,"(a)") '#   [ 7] eta       : Rogers-Young closure parameter'
+  write(88,"(a)") '#   [ 8] Sq_max    : Maximum peak of total structure factor S(q)_max'
+  write(88,"(a)") '#   [ 9] Sq_0      : Zero-wavevector limit of total structure factor S(q=0)'
+  write(88,"(a)") '#   [10] Sq0/Sqmax : Long-wavelength fluctuation ratio S(0) / S(q)_max'
+  write(88,"(a)") '#   [11] scale_21  : Core scaling factor (S22(0) / S11(0))^(1/4)'
+  write(88,"(a)") '#   [12] S2_ex/kB  : Excess two-body entropy per particle'
+  write(88,"(a)") '#   [13] lambda1   : Minimum eigenvalue of Bhatia-Thornton fluctuation matrix (spinodal indicator, lambda1 -> 0)'
+  write(88,"(a)") '#   [14] lambda2   : Maximum eigenvalue of Bhatia-Thornton fluctuation matrix'
+  write(88,"(a)") '#   [15] 1/Scc(0)  : Inverse concentration fluctuation at origin (vanishes at critical demixing point)'
+  write(88,"(a)") '#============================================================================================================================================================================================================================='
+  write(88,"(a1, 15(1x, a14))") '#', &
+       'rho_tot', 'x2', 'U/NkT', 'P/(rho*kT)', 'chi^-1', &
+       'dP*/drho', 'eta', 'Sq_max', 'Sq_0', 'Sq0/Sqmax', &
+       'scale_21', 'S2_ex/kB', 'lambda1', 'lambda2', '1/Scc(0)'
+  write(88,"(a1, 15(1x, a14))") '#', &
+       '--------------', '--------------', '--------------', '--------------', '--------------', &
+       '--------------', '--------------', '--------------', '--------------', '--------------', &
+       '--------------', '--------------', '--------------', '--------------', '--------------'
 
   !     Set up tables for Hankel transforms.
   open (15,file=FTtables,status='unknown')
   if (newW .eq. 1) then ! calculate needed FT tables; save for later reuse.
-     write (*,"(' [Hankel Tables] Calculating Bessel roots and quadrature weights...')")
-     write (*,"('                 Saving precomputed tables to ', a, '...')") trim(FTtables)
+     write (*,"(a, ' [Hankel Tables]', a, ' Calculating Bessel roots and quadrature weights...')") c_b_blue, c_reset
+     write (*,"('                 Saving precomputed tables to ', a, a, a, '...')") c_b_white, trim(FTtables), c_reset
      call setupW(Nr)
      write (15,40) ((W(i,j), i = 1,Nr-1), j = 1,Nr-1)
      write (15,40) (BJ1sq(i), i = 1,Nr)
      write (15,40) (root(i), i = 1,Nr)
-     write (*,"(' [Hankel Tables] Tables successfully generated.')")
+     write (*,"(a, ' [Hankel Tables]', a, ' ', a, 'Tables successfully generated.', a)") c_b_blue, c_reset, c_b_green, c_reset
   else ! read in stored tables.
-     write (*,"(' [Hankel Tables] Loading precomputed quadrature tables from: ', a)") trim(FTtables)
+     write (*,"(a, ' [Hankel Tables]', a, ' Loading precomputed quadrature tables from: ', a, a, a)") &
+          c_b_blue, c_reset, c_b_white, trim(FTtables), c_reset
      read (15,40) ((W(i,j), i = 1,Nr-1), j = 1,Nr-1)
      read (15,40) (BJ1sq(i), i = 1,Nr)
      read (15,40) (root(i), i = 1,Nr)
-     write (*,"(' [Hankel Tables] Tables loaded successfully.')")
+     write (*,"(a, ' [Hankel Tables]', a, ' ', a, 'Tables loaded successfully.', a)") c_b_blue, c_reset, c_b_green, c_reset
   end if
   close (15,status='keep')
 40 format (6f12.6)
@@ -776,47 +828,54 @@ Program twoDdipRY
   Enddo
 
   !     Echo system parameters and configuration to stdout
-  write (*,"(/'--------------------------------------------------------------------------------')")
-  write (*,"(' SYSTEM CONFIGURATION & PARAMETERS')")
-  write (*,"('--------------------------------------------------------------------------------')")
-  write (*,"(' Radial Grid & Quadrature:')")
-  write (*,"('   Grid points (Nr)       : ', i8, 6x, 'r_max = ', f10.5, ', q_max = ', f10.5)") Nr, rMax, qMax
-  write (*,"('   Hankel table file      : ', a)") trim(FTtables)
+  write (*,"(/'', a, '--------------------------------------------------------------------------------', a)") c_gray, c_reset
+  write (*,"(a, ' SYSTEM CONFIGURATION & PARAMETERS', a)") c_b_yellow, c_reset
+  write (*,"(a, '--------------------------------------------------------------------------------', a)") c_gray, c_reset
+  write (*,"(a, ' Radial Grid & Quadrature:', a)") c_b_cyan, c_reset
+  write (*,"('   Grid points (Nr)       : ', a, i8, a, 6x, 'r_max = ', a, f10.5, a, ', q_max = ', a, f10.5, a)") &
+       c_b_white, Nr, c_reset, c_b_white, rMax, c_reset, c_b_white, qMax, c_reset
+  write (*,"('   Hankel table file      : ', a, a, a)") c_b_white, trim(FTtables), c_reset
   if (iStart .eq. 1) then
-     write (*,"('   Restart mode           : Restart solution from ', a)") trim(INfile)
+     write (*,"('   Restart mode           : ', a, 'Restart solution from ', a, a)") c_yellow, trim(INfile), c_reset
   else
      write (*,"('   Restart mode           : Fresh start (short-range ideal gas)')")
   end if
-  write (*,"('   Restart output file    : ', a)") trim(OUTfile)
+  write (*,"('   Restart output file    : ', a, a, a)") c_b_white, trim(OUTfile), c_reset
   write (*,*)
-  write (*,"(' Interaction Potentials:')")
-  write (*,"('   Dipolar coupling Gamma : ', 1pe12.5)") Gamma
-  write (*,"('   Species dipole moments : z(1) = ', f9.4, ', z(2) = ', f9.4)") z(1), z(2)
-  write (*,"('   Cross-interaction scale: lambda(1,2) = ', f8.4)") lambda
-  write (*,"('   Core shrink factor     : ', f8.4)") shrink
-  write (*,"('   Hard-core diameters    : sigma(1,1) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(1,1), Ncore(1,1)
-  write (*,"('                            sigma(1,2) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(1,2), Ncore(1,2)
-  write (*,"('                            sigma(2,2) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(2,2), Ncore(2,2)
-  write (*,"('   Effective couplings    : gamma(1,1) = ', 1pe12.5, ', gamma(1,2) = ', 1pe12.5)") &
-       Gamma*z(1)*z(1), Gamma*lambda*z(1)*z(2)
-  write (*,"('                            gamma(2,2) = ', 1pe12.5)") Gamma*z(2)*z(2)
+  write (*,"(a, ' Interaction Potentials:', a)") c_b_cyan, c_reset
+  write (*,"('   Dipolar coupling Gamma : ', a, 1pe12.5, a)") c_b_white, Gamma, c_reset
+  write (*,"('   Species dipole moments : z(1) = ', a, f9.4, a, ', z(2) = ', a, f9.4, a)") &
+       c_b_white, z(1), c_reset, c_b_white, z(2), c_reset
+  write (*,"('   Cross-interaction scale: lambda(1,2) = ', a, f8.4, a)") c_b_white, lambda, c_reset
+  write (*,"('   Core shrink factor     : ', a, f8.4, a)") c_b_white, shrink, c_reset
+  write (*,"('   Hard-core diameters    : sigma(1,1) = ', a, f8.4, a, ' (Ncore = ', i5, ')')") &
+       c_b_white, sigma(1,1), c_reset, Ncore(1,1)
+  write (*,"('                            sigma(1,2) = ', a, f8.4, a, ' (Ncore = ', i5, ')')") &
+       c_b_white, sigma(1,2), c_reset, Ncore(1,2)
+  write (*,"('                            sigma(2,2) = ', a, f8.4, a, ' (Ncore = ', i5, ')')") &
+       c_b_white, sigma(2,2), c_reset, Ncore(2,2)
+  write (*,"('   Effective couplings    : gamma(1,1) = ', a, 1pe12.5, a, ', gamma(1,2) = ', a, 1pe12.5, a)") &
+       c_b_white, Gamma*z(1)*z(1), c_reset, c_b_white, Gamma*lambda*z(1)*z(2), c_reset
+  write (*,"('                            gamma(2,2) = ', a, 1pe12.5, a)") c_b_white, Gamma*z(2)*z(2), c_reset
   write (*,*)
-  write (*,"(' Numerical Solver & Closure Settings:')")
-  write (*,"('   Picard mixing parameter: blend0 = ', f8.4, ', rms_cut = ', 1pe10.3)") blend0, rmscut
-  write (*,"('   Picard convergence tol : rms_max = ', 1pe10.3, ', max_iters = ', i6)") rmsMax, iterMax
+  write (*,"(a, ' Numerical Solver & Closure Settings:', a)") c_b_cyan, c_reset
+  write (*,"('   Picard mixing parameter: blend0 = ', a, f8.4, a, ', rms_cut = ', a, 1pe10.3, a)") &
+       c_b_white, blend0, c_reset, c_b_white, rmscut, c_reset
+  write (*,"('   Picard convergence tol : rms_max = ', a, 1pe10.3, a, ', max_iters = ', a, i6, a)") &
+       c_b_white, rmsMax, c_reset, c_b_white, iterMax, c_reset
   if (osig) then
-     write (*,"('   Thermodynamic closure  : Rogers-Young with Newton-Raphson consistency')")
-     write (*,"('                            Initial eta = ', f8.4, ', d_eta = ', f9.4, ', tol = ', 1pe10.3)") &
-          eta, dsig, tol
+     write (*,"('   Thermodynamic closure  : ', a, 'Rogers-Young with Newton-Raphson consistency', a)") c_b_green, c_reset
+     write (*,"('                            Initial eta = ', a, f8.4, a, ', d_eta = ', a, f9.4, a, ', tol = ', a, 1pe10.3, a)") &
+          c_b_white, eta, c_reset, c_b_white, dsig, c_reset, c_b_white, tol, c_reset
   else
-     write (*,"('   Thermodynamic closure  : Rogers-Young with FIXED eta = ', f8.4)") eta
+     write (*,"('   Thermodynamic closure  : ', a, 'Rogers-Young with FIXED eta = ', f8.4, a)") c_yellow, eta, c_reset
   end if
   write (*,*)
-  write (*,"(' State Scan Setup:')")
-  write (*,"('   Density range [min,max]: [', f8.4, ', ', f8.4, '] in ', i3, ' interval(s)')") &
-       rtmin, rtmax, nrt
-  write (*,"('   Composition points     : ', i3, ' point(s) for x2')") nxf
-  write (*,"('--------------------------------------------------------------------------------')")
+  write (*,"(a, ' State Scan Setup:', a)") c_b_cyan, c_reset
+  write (*,"('   Density range [min,max]: [', a, f8.4, a, ', ', a, f8.4, a, '] in ', a, i3, a, ' interval(s)')") &
+       c_b_white, rtmin, c_reset, c_b_white, rtmax, c_reset, c_b_white, nrt, c_reset
+  write (*,"('   Composition points     : ', a, i3, a, ' point(s) for x2')") c_b_white, nxf, c_reset
+  write (*,"(a, '--------------------------------------------------------------------------------', a)") c_gray, c_reset
 
 50 format (/5x, 'sigma(i,j) =',5f15.10)
 
@@ -837,7 +896,8 @@ Program twoDdipRY
      write (3,60)
      write (3,70) NrIn, i2, i3, &
           a1, a2, a3, a4, a5
-     write (*,"('   [Restart] Successfully loaded initial solution from ', a, ' (Nr = ', i5, ')')") trim(INfile), NrIn
+     write (*,"('   ', a, '[Restart]', a, ' Successfully loaded initial solution from ', a, a, a, ' (Nr = ', i5, ')')") &
+          c_cyan, c_reset, c_b_white, trim(INfile), c_reset, NrIn
   else ! from SR ideal gas.
      do j = 1,nsp
         do k = j,nsp
@@ -888,10 +948,14 @@ Program twoDdipRY
         rhoi(2) = xf(ixf)*rhoTotal0
 
         write (*,*)
-        write (*,"('================================================================================')")
-        write (*,"(' STATE POINT: rho_tot = ', f8.4, ' | x2 = ', f8.4, ' (rho1 = ', f8.4, ', rho2 = ', f8.4, ')')") &
-             rhoTotal0, xf(ixf), rhoi(1), rhoi(2)
-        write (*,"('================================================================================')")
+        write (*,"(a)") c_b_blue // '================================================================================' // c_reset
+        write (*,"(a, f8.4, a, f8.4, a, f8.4, a, f8.4, a)") &
+             c_b_cyan // ' STATE POINT: ' // c_b_yellow // 'rho_tot = ' // c_b_white, rhoTotal0, &
+             c_b_yellow // ' | x2 = ' // c_b_white, xf(ixf), &
+             c_cyan // ' (rho1 = ' // c_white, rhoi(1), &
+             c_cyan // ', rho2 = ' // c_white, rhoi(2), &
+             c_cyan // ')' // c_reset
+        write (*,"(a)") c_b_blue // '================================================================================' // c_reset
 
         do while (ersig > tol .and. solve)
            if (.not. osig) solve = .false.
@@ -1060,8 +1124,12 @@ Program twoDdipRY
                     write (3,90) iter, rms, (sSR(0,i,i),i=1,nsp)
                  endif
                  if (irho == 0 .and. mod(iter,50) == 0) then
-                    write (*,"('   [Picard rho0] Iteration ', i5, ' : rms = ', 1pe10.3, ' | sSR(1,1) = ', 0pf8.4, ', sSR(2,2) = ', 0pf8.4)") &
-                         iter, rms, (sSR(0,i,i), i=1,nsp)
+                    write (*,"(a, i5, a, 1pe10.3, a, 0pf8.4, a, 0pf8.4, a)") &
+                         c_cyan // '   [Picard rho0]' // c_reset // ' Iteration ' // c_yellow, iter, &
+                         c_reset // ' : rms = ' // c_b_white, rms, &
+                         c_reset // ' | sSR(1,1) = ' // c_white, sSR(0,1,1), &
+                         c_reset // ', sSR(2,2) = ' // c_white, sSR(0,2,2), &
+                         c_reset
                  endif
 90               format (10x, i6, 1pe13.2, 0pf12.4, 5f12.4)
                  !     End Ng acceleration.
@@ -1087,7 +1155,10 @@ Program twoDdipRY
                  !       End extrapolation attempt.
               enddo
               if (irho == 0) then
-                 write (*,"('   [Picard rho0] Converged in ', i5, ' iterations (rms = ', 1pe10.3, ')')") iter, rms
+                 write (*,"(a, i5, a, 1pe10.3, a)") &
+                      c_b_green // '   [Picard rho0] Converged in ' // c_b_yellow, iter, &
+                      c_b_green // ' iterations (rms = ' // c_b_white, rms, &
+                      c_b_green // ')' // c_reset
               endif
 100           format (13x, 'ext', 13x, 5f12.4)
               !     End Picard iteration.
@@ -1281,8 +1352,14 @@ Program twoDdipRY
            fopt = (xc(0)-dPr)
            ersig = abs(fopt/xc(0))
            if(osig) then
-              write (*,"('   [Consistency NR] Step ', i3, ' : eta = ', f9.6, ' | chi^-1 = ', f10.6, ' | dP/drho = ', f10.6, ' | diff = ', f10.6, ' | rel_err = ', 1pe10.3)") &
-                   its, eta, xc(0), dPr, fopt, ersig
+              write (*,"(a, i3, a, f9.6, a, f10.6, a, f10.6, a, f10.6, a, 1pe10.3, a)") &
+                   c_magenta // '   [Consistency NR]' // c_reset // ' Step ' // c_yellow, its, &
+                   c_reset // ' : eta = ' // c_b_white, eta, &
+                   c_reset // ' | chi^-1 = ' // c_white, xc(0), &
+                   c_reset // ' | dP/drho = ' // c_white, dPr, &
+                   c_reset // ' | diff = ' // c_white, fopt, &
+                   c_reset // ' | rel_err = ' // c_b_yellow, ersig, &
+                   c_reset
               if(its.lt.2)then
                  eti = eta+dsig
               else
@@ -1295,11 +1372,15 @@ Program twoDdipRY
            endif
         enddo
         if (osig) then
-           write (*,"('   [Consistency NR] Converged in ', i3, ' step(s)! Final eta = ', f9.6, ' (tol = ', 1pe10.3, ')')") &
-                its, eto, tol
+           write (*,"(a, i3, a, f9.6, a, 1pe10.3, a)") &
+                c_b_green // '   [Consistency NR] Converged in ' // c_b_yellow, its, &
+                c_b_green // ' step(s)! Final eta = ' // c_b_white, eto, &
+                c_b_green // ' (tol = ' // c_white, tol, &
+                c_b_green // ')' // c_reset
            eta = eto
         else
-           write (*,"('   [Rogers-Young] Evaluated with fixed eta = ', f9.6)") eta
+           write (*,"(a, f9.6, a)") &
+                c_cyan // '   [Rogers-Young] Evaluated with fixed eta = ' // c_b_white, eta, c_reset
         endif
         write (3,101) Gamma, (i,rhoi(i),i=1,nsp)
         write (3,"(5(' z(',i1,') =',f8.4,',':))") (i,z(i),i=1,nsp)
@@ -1398,55 +1479,68 @@ Program twoDdipRY
         close(22)
         close(23)
         close(95)
-        write(88,"(16f12.6)")rhoTotal0,xf(ixf),uint(0), pres(0), xc(0), dPr, eta&
-             &, sqmax, sq0, sq0/sqmax,(sq220/(sq110))**0.25, s2ex,&
-             & lamb1, lamb2,  1.0/scc0
         if (sq110 > 0.0d0 .and. sq220 > 0.0d0) then
-           R02 = R01/((sq220)/(sq110))**0.25d0
+           scale_21 = (sq220 / sq110)**0.25d0
         else
-           R02 = R01
+           scale_21 = 1.0d0
         end if
+        R02 = R01 / scale_21
+
+        write(88,"(1x, 15(1x, f14.6))") &
+             rhoTotal0, xf(ixf), uint(0), pres(0), xc(0), &
+             dPr, eta, sqmax, sq0, sq0/sqmax, &
+             scale_21, s2ex, lamb1, lamb2, 1.0d0/scc0
 
         !     Print comprehensive state results
-        write (*,"(/'--------------------------------------------------------------------------------')")
-        write (*,"(' RESULTS FOR STATE POINT: rho = ', f8.4, ', x2 = ', f8.4)") rhoTotal0, xf(ixf)
-        write (*,"('--------------------------------------------------------------------------------')")
-        write (*,"(' Thermodynamics & Equation of State:')")
-        write (*,"('   Compressibility factor (Z = P/(rho*kT)) : ', f12.6)") pres(0)
-        write (*,"('     - Hard-disk core contribution (Z_HD)  : ', f12.6)") P10
-        write (*,"('     - Dipolar interaction (Z_dip)         : ', f12.6)") P20
-        write (*,"('   Reduced internal energy (U / (N*kT))    : ', f12.6)") uint(0)
-        write (*,"('   Excess two-body entropy (S2_ex / kB)    : ', f12.6)") s2ex
         write (*,*)
-        write (*,"(' Thermodynamic Consistency & Response:')")
-        write (*,"('   Rogers-Young parameter (eta)            : ', f12.6)") eta
-        write (*,"('   Inverse compressibility (chi^-1)        : ', f12.6)") xc(0)
-        write (*,"('   Virial pressure derivative (dP*/drho)   : ', f12.6)") dPr
-        write (*,"('   Isothermal compressibility (drho/dP*)   : ', f12.6)") 1.0d0 / dPr
-        write (*,"('   Consistency discrepancy (f_opt)         : ', f12.6, '  (rel_err = ', 1pe10.3, ')')") fopt, ersig
+        write (*,"(a)") c_b_blue // '--------------------------------------------------------------------------------' // c_reset
+        write (*,"(a, f8.4, a, f8.4, a)") &
+             c_b_cyan // ' RESULTS FOR STATE POINT: ' // c_b_yellow // 'rho = ' // c_b_white, rhoTotal0, &
+             c_b_yellow // ', x2 = ' // c_b_white, xf(ixf), c_reset
+        write (*,"(a)") c_b_blue // '--------------------------------------------------------------------------------' // c_reset
+        write (*,"(a)") c_b_cyan // ' Thermodynamics & Equation of State:' // c_reset
+        write (*,"(a, f12.6)") '   Compressibility factor (Z = P/(rho*kT)) : ', pres(0)
+        write (*,"(a, f12.6)") '     - Hard-disk core contribution (Z_HD)  : ', P10
+        write (*,"(a, f12.6)") '     - Dipolar interaction (Z_dip)         : ', P20
+        write (*,"(a, f12.6)") '   Reduced internal energy (U / (N*kT))    : ', uint(0)
+        write (*,"(a, f12.6)") '   Excess two-body entropy (S2_ex / kB)    : ', s2ex
         write (*,*)
-        write (*,"(' Fluctuation & Spinodal Stability (Bhatia-Thornton):')")
-        write (*,"('   Zero-wavevector response matrix elements:')")
-        write (*,"('     Mrr(0) = ', f12.6, ', Mcc(0) = ', f12.6, ', Mrc(0) = ', f12.6)") Mrr0, Mcc0, Mrc0
-        write (*,"('   Spinodal eigenvalues (lambda1, lambda2) : ', f12.6, ', ', f12.6)") lamb1, lamb2
+        write (*,"(a)") c_b_cyan // ' Thermodynamic Consistency & Response:' // c_reset
+        write (*,"(a, f12.6)") '   Rogers-Young parameter (eta)            : ', eta
+        write (*,"(a, f12.6)") '   Inverse compressibility (chi^-1)        : ', xc(0)
+        write (*,"(a, f12.6)") '   Virial pressure derivative (dP*/drho)   : ', dPr
+        write (*,"(a, f12.6)") '   Isothermal compressibility (drho/dP*)   : ', 1.0d0 / dPr
+        write (*,"(a, f12.6, a, 1pe10.3, a)") &
+             '   Consistency discrepancy (f_opt)         : ', fopt, '  (rel_err = ', ersig, ')'
+        write (*,*)
+        write (*,"(a)") c_b_cyan // ' Fluctuation & Spinodal Stability (Bhatia-Thornton):' // c_reset
+        write (*,"(a)") '   Zero-wavevector response matrix elements:'
+        write (*,"(a, f12.6, a, f12.6, a, f12.6)") &
+             '     Mrr(0) = ', Mrr0, ', Mcc(0) = ', Mcc0, ', Mrc(0) = ', Mrc0
+        write (*,"(a, f12.6, a, f12.6)") &
+             '   Spinodal eigenvalues (lambda1, lambda2) : ', lamb1, ', ', lamb2
         if (lamb1 > 1.0d-5) then
-           write (*,"('   Spinodal stability status               : STABLE (lambda1 > 0)')")
+           write (*,"(a)") '   Spinodal stability status               : ' // &
+                c_b_green // 'STABLE (lambda1 > 0)' // c_reset
         else if (lamb1 >= 0.0d0) then
-           write (*,"('   Spinodal stability status               : NEAR SPINODAL MARGIN (lambda1 ~ 0)')")
+           write (*,"(a)") '   Spinodal stability status               : ' // &
+                c_b_yellow // 'NEAR SPINODAL MARGIN (lambda1 ~ 0)' // c_reset
         else
-           write (*,"('   Spinodal stability status               : UNSTABLE / DEMIXING (lambda1 < 0)')")
+           write (*,"(a)") '   Spinodal stability status               : ' // &
+                c_b_red // 'UNSTABLE / DEMIXING (lambda1 < 0)' // c_reset
         end if
-        write (*,"('   Concentration fluctuation S_cc(0)       : ', f12.6, '  (1/S_cc(0) = ', f12.6, ')')") scc0, 1.0d0 / scc0
+        write (*,"(a, f12.6, a, f12.6, a)") &
+             '   Concentration fluctuation S_cc(0)       : ', scc0, '  (1/S_cc(0) = ', 1.0d0 / scc0, ')'
         write (*,*)
-        write (*,"(' Structure Factor Highlights:')")
-        write (*,"('   Peak of total structure factor S(q)_max : ', f12.6)") sqmax
-        write (*,"('   Zero-wavevector structure factor S(0)   : ', f12.6)") sq0
-        write (*,"('   Fluctuation ratio S(0) / S(q)_max       : ', f12.6)") sq0 / sqmax
+        write (*,"(a)") c_b_cyan // ' Structure Factor Highlights:' // c_reset
+        write (*,"(a, f12.6)") '   Peak of total structure factor S(q)_max : ', sqmax
+        write (*,"(a, f12.6)") '   Zero-wavevector structure factor S(0)   : ', sq0
+        write (*,"(a, f12.6)") '   Fluctuation ratio S(0) / S(q)_max       : ', sq0 / sqmax
         if (sq110 > 0.0d0 .and. sq220 > 0.0d0) then
-           write (*,"('   Disk size scaling (S22(0)/S11(0))^0.25  : ', f12.6)") (sq220 / sq110)**0.25d0
+           write (*,"(a, f12.6)") '   Disk size scaling (S22(0)/S11(0))^0.25  : ', scale_21
         end if
-        write (*,"('   Optimum form factor radius ratio R01/R02: ', f12.6)") R01 / R02
-        write (*,"('--------------------------------------------------------------------------------')")
+        write (*,"(a, f12.6)") '   Optimum form factor radius ratio R01/R02: ', R01 / R02
+        write (*,"(a)") c_b_blue // '--------------------------------------------------------------------------------' // c_reset
 
         if (nStateDone < maxStates) then
            nStateDone = nStateDone + 1
@@ -1527,29 +1621,30 @@ Program twoDdipRY
 
   !     Summary table of all computed state points
   if (nStateDone > 0) then
-     write (*,"(/'================================================================================')")
-     write (*,"('                     SUMMARY OF COMPUTED STATE POINTS')")
-     write (*,"('================================================================================')")
-     write (*,"('   rho       x2      P/(rho*kT)   U/(N*kT)      chi^-1     dP*/drho     eta       lambda1       1/Scc(0)    S(q)_max')")
-     write (*,"('--------------------------------------------------------------------------------')")
+     write (*,*)
+     write (*,"(a)") c_b_blue // '================================================================================' // c_reset
+     write (*,"(a)") c_b_yellow // '                     SUMMARY OF COMPUTED STATE POINTS' // c_reset
+     write (*,"(a)") c_b_blue // '================================================================================' // c_reset
+     write (*,"(a)") c_b_cyan // '   rho       x2      P/(rho*kT)   U/(N*kT)      chi^-1     dP*/drho     eta       lambda1       1/Scc(0)    S(q)_max' // c_reset
+     write (*,"(a)") c_dim // '--------------------------------------------------------------------------------' // c_reset
      do istate = 1, nStateDone
         write (*,"(f8.4, 1x, f8.4, 1x, f12.6, 1x, f11.6, 1x, f11.6, 1x, f11.6, 1x, f8.4, 1x, f11.6, 1x, f11.6, 1x, f10.4)") &
              res_rho(istate), res_x2(istate), res_P(istate), res_U(istate), &
              res_xc(istate), res_dPr(istate), res_eta(istate), &
              res_lamb1(istate), res_invScc(istate), res_sqmax(istate)
      end do
-     write (*,"('================================================================================')")
+     write (*,"(a)") c_b_blue // '================================================================================' // c_reset
   end if
 
-  write (*,"(/' Output files written:')")
-  write (*,"('   * thermo.dat : Thermodynamic table & spinodal stability metrics')")
-  write (*,"('   * gr.dat     : Pair radial distribution functions g_jk(r)')")
-  write (*,"('   * sq.dat     : Structure factors S_jk(q) and S_cc(q)')")
-  write (*,"('   * sqopt.dat  : Optical form-factor folded structure factors')")
-  write (*,"('   * srq.dat    : Scaled partial structure factors')")
-  write (*,"('   * solout.dat : Converged solution vector s_SR(r; j,k) for restart')")
-  write (*,"(/' Program twoDdipRY completed successfully.')")
-  write (*,"('================================================================================'/)")
+  write (*,"(/a)") c_b_cyan // ' Output files written:' // c_reset
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'thermo.dat' // c_reset // ' : Thermodynamic table & spinodal stability metrics'
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'gr.dat    ' // c_reset // ' : Pair radial distribution functions g_jk(r)'
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'sq.dat    ' // c_reset // ' : Structure factors S_jk(q) and S_cc(q)'
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'sqopt.dat ' // c_reset // ' : Optical form-factor folded structure factors'
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'srq.dat   ' // c_reset // ' : Scaled partial structure factors'
+  write (*,"(a)") c_cyan // '   * ' // c_b_white // 'solout.dat' // c_reset // ' : Converged solution vector s_SR(r; j,k) for restart'
+  write (*,"(/a)") c_b_green // ' Program twoDdipRY completed successfully.' // c_reset
+  write (*,"(a/)") c_b_blue // '================================================================================' // c_reset
 
   close(88)
   close(3, status='keep')
