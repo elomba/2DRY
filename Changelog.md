@@ -2,6 +2,20 @@
 
 All notable changes to the `twoDdipRY` package are documented in this file.
 
+## [2026-10-07] - NaN/Inf Numerical Monitoring & Safe File Cleanup
+
+### Added
+- **Real-Time NaN / Inf Numerical Monitoring**:
+  - Introduced `Module monitor_mod` leveraging Fortran 2003 intrinsic `ieee_arithmetic` (`ieee_is_finite`, `ieee_is_nan`).
+  - Added continuous scalar validation (`check_scalar`) for Picard residuals (`rms`), thermodynamic virials ($P_1, P_2, U, X$), spinodal response matrix elements ($M_{rr}, M_{cc}, M_{rc}$), eigenvalues ($\lambda_1, \lambda_2$), concentration fluctuations ($S_{cc}(0)$), consistency derivatives ($\partial P^*/\partial\rho$, $f_{opt}$, $f'$), and closure parameters ($\eta, \tilde{\eta}$).
+  - Added array validations (`check_array_1d`, `check_array_3d`) monitoring long-range potential tables (`flr`, `tflr`) and indirect correlation vectors ($s_{SR}(r; j,k)$).
+- **Restart File Protection (`solout.dat`)**:
+  - Implemented pre-flight validation of the entire $s_{SR}(r)$ solution array and key state thermodynamics immediately before opening or writing to `solout.dat`.
+  - Guarantees that any numerical divergence or non-finite arithmetic aborts execution before corrupting or overwriting previous valid restart files.
+- **Graceful File Closure & Flushing**:
+  - Implemented `safe_close_all()` which inspects all program file units (`2`, `3`, `15`, `16`, `17`, `22`, `23`, `88`, `95`, `230`), flushes write buffers, and cleanly closes all active file handles upon fatal numerical error or program completion.
+  - Added colorized fatal error diagnostic banners reporting exact context, variable name, and recorded value.
+
 ## [2026-10-07] - ANSI Terminal Coloring & thermo.dat Reorganization
 
 ### Added

@@ -148,3 +148,17 @@ When executed, `2DdipRYN_final` prints a structured, ANSI syntax-colored report 
    - **Fluctuation & Spinodal Stability (Bhatia–Thornton)**: Response matrix ($M_{rr}, M_{cc}, M_{rc}$), spinodal eigenvalues ($\lambda_1, \lambda_2$), physical stability classification (`STABLE` in bold green, `NEAR SPINODAL MARGIN` in bold yellow, or `UNSTABLE / DEMIXING` in bold red), and concentration fluctuation $S_{cc}(0)$ and $1/S_{cc}(0)$.
    - **Structure Factor Highlights**: Total peak $S(q)_{max}$, zero-wavevector limit $S(0)$, ratio $S(0)/S(q)_{max}$, disk scaling ratio, and optical form-factor ratio $R_{01}/R_{02}$.
 4. **Summary Table**: Colorized multi-column table summarizing all computed $(\rho, x_2)$ state points with their key thermodynamic and stability indices at program termination.
+
+---
+
+## 8. Numerical Monitoring & Fail-Safe Protection
+
+To prevent runaway divergences from silently generating corrupted output files or ruining existing restart states, `2DdipRYN_final` incorporates automated monitoring via `Module monitor_mod`:
+
+- **Real-Time IEEE Checks**: Continuously evaluates `ieee_is_finite` on all critical numerical quantities:
+  - Picard residuals (`rms`), intermediate correlation arrays ($s_{SR}(r; j,k)$), and iteration limits (`iterMax`).
+  - Virial pressures ($P_1, P_2$), internal energy ($U$), and compressibility integrals ($X$).
+  - Bhatia–Thornton fluctuation matrix elements ($M_{rr}, M_{cc}, M_{rc}$), spinodal eigenvalues ($\lambda_1, \lambda_2$), and concentration fluctuation ($S_{cc}(0)$).
+  - Newton–Raphson consistency derivatives ($\partial P^*/\partial\rho$, $f_{opt}$, $f'$), and parameter updates ($\eta, \tilde{\eta}$).
+- **Pre-Flight Restart Protection**: Rigorously verifies that the indirect correlation array $s_{SR}$ and all state observables are strictly finite **before** opening or writing to `solout.dat`. If a NaN or Inf is detected, calculations halt immediately and previous valid restart files remain untouched.
+- **Graceful File Cleanup**: In the event of a fatal numerical divergence or upon normal completion, `safe_close_all()` flushes write buffers and closes all active file handles (units `2`, `3`, `15`, `16`, `17`, `22`, `23`, `88`, `95`, `230`).

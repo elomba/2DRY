@@ -624,6 +624,134 @@ Module color_mod
   character(len=*), parameter :: c_b_white = achar(27)//'[1;37m'
 End Module color_mod
 
+Module monitor_mod
+  use, intrinsic :: ieee_arithmetic, only : ieee_is_nan, ieee_is_finite
+  use color_mod
+  implicit none
+
+contains
+
+  subroutine safe_close_all()
+    implicit none
+    integer :: u, i
+    logical :: is_open
+    integer, parameter :: known_units(*) = [2, 3, 15, 16, 17, 22, 23, 88, 95, 230]
+    do i = 1, size(known_units)
+       u = known_units(i)
+       inquire(unit=u, opened=is_open)
+       if (is_open) then
+          flush(u)
+          close(u)
+       end if
+    end do
+  end subroutine safe_close_all
+
+  subroutine abort_on_nan_inf(context, varname, val)
+    implicit none
+    character(len=*), intent(in) :: context, varname
+    real(kind=8), intent(in), optional :: val
+    logical :: log_open
+
+    write (*,*)
+    write (*,"(a)") c_b_red // '================================================================================' // c_reset
+    write (*,"(a)") c_b_red // ' [FATAL NUMERICAL ERROR] NaN / Inf DETECTED DURING CALCULATION!' // c_reset
+    write (*,"(a)") c_b_red // '================================================================================' // c_reset
+    write (*,"(a, a, a)") c_yellow // ' Location / Context : ' // c_b_white, trim(context), c_reset
+    write (*,"(a, a, a)") c_yellow // ' Variable Name      : ' // c_b_white, trim(varname), c_reset
+    if (present(val)) then
+       write (*,"(a, 1pe15.6, a)") c_yellow // ' Value Recorded     : ' // c_b_red, val, c_reset
+    end if
+    write (*,"(a)") c_red // ' Action taken: Aborting immediately before storing solout.dat.' // c_reset
+    write (*,"(a)") c_cyan // ' Closing and flushing all active data files...' // c_reset
+
+    inquire(unit=3, opened=log_open)
+    if (log_open) then
+       write (3,"(/' *** FATAL ERROR: NaN/Inf detected in ', a, ' (variable: ', a, ')')") trim(context), trim(varname)
+    end if
+
+    call safe_close_all()
+
+    write (*,"(a)") c_b_green // ' All files closed properly. Terminating execution.' // c_reset
+    write (*,"(a/)") c_b_red // '================================================================================' // c_reset
+
+    stop 1
+  end subroutine abort_on_nan_inf
+
+  subroutine abort_on_error(context, msg, val)
+    implicit none
+    character(len=*), intent(in) :: context, msg
+    real(kind=8), intent(in), optional :: val
+    logical :: log_open
+
+    write (*,*)
+    write (*,"(a)") c_b_red // '================================================================================' // c_reset
+    write (*,"(a)") c_b_red // ' [FATAL ERROR] NUMERICAL CALCULATION STOPPED!' // c_reset
+    write (*,"(a)") c_b_red // '================================================================================' // c_reset
+    write (*,"(a, a, a)") c_yellow // ' Location / Context : ' // c_b_white, trim(context), c_reset
+    write (*,"(a, a, a)") c_yellow // ' Error Description  : ' // c_b_white, trim(msg), c_reset
+    if (present(val)) then
+       write (*,"(a, 1pe15.6, a)") c_yellow // ' Value Recorded     : ' // c_b_red, val, c_reset
+    end if
+    write (*,"(a)") c_red // ' Action taken: Aborting immediately before storing solout.dat.' // c_reset
+    write (*,"(a)") c_cyan // ' Closing and flushing all active data files...' // c_reset
+
+    inquire(unit=3, opened=log_open)
+    if (log_open) then
+       write (3,"(/' *** FATAL ERROR: ', a, ' in ', a)") trim(msg), trim(context)
+    end if
+
+    call safe_close_all()
+
+    write (*,"(a)") c_b_green // ' All files closed properly. Terminating execution.' // c_reset
+    write (*,"(a/)") c_b_red // '================================================================================' // c_reset
+
+    stop 1
+  end subroutine abort_on_error
+
+  subroutine check_scalar(context, varname, val)
+    implicit none
+    character(len=*), intent(in) :: context, varname
+    real(kind=8), intent(in) :: val
+    if (.not. ieee_is_finite(val)) then
+       call abort_on_nan_inf(context, varname, val)
+    end if
+  end subroutine check_scalar
+
+  subroutine check_array_1d(context, varname, arr)
+    implicit none
+    character(len=*), intent(in) :: context, varname
+    real(kind=8), intent(in) :: arr(:)
+    integer :: i
+    do i = 1, size(arr)
+       if (.not. ieee_is_finite(arr(i))) then
+          call abort_on_nan_inf(context, varname, arr(i))
+          return
+       end if
+    end do
+  end subroutine check_array_1d
+
+  subroutine check_array_3d(context, varname, arr)
+    implicit none
+    character(len=*), intent(in) :: context, varname
+    real(kind=8), intent(in) :: arr(:,:,:)
+    integer :: i, j, k
+    if (any(.not. ieee_is_finite(arr))) then
+       do k = 1, size(arr, 3)
+          do j = 1, size(arr, 2)
+             do i = 1, size(arr, 1)
+                if (.not. ieee_is_finite(arr(i,j,k))) then
+                   call abort_on_nan_inf(context, trim(varname), arr(i,j,k))
+                   return
+                end if
+             end do
+          end do
+       end do
+       call abort_on_nan_inf(context, varname)
+    end if
+  end subroutine check_array_3d
+
+End Module monitor_mod
+
 
 Program twoDdipRY
   !     N-component  HDs+1/r**3 in 2D, from 2008's F. Lado code.
@@ -645,6 +773,7 @@ Program twoDdipRY
   !           where rhoHat = (2.0*pi*rMax/qMax)*rho.
   use datatrans
   use color_mod
+  use monitor_mod
   use bessel_slatec_mod, only : dbsi0e, dbsi1e
   implicit none
   integer :: ipiv(nsp)
@@ -707,8 +836,7 @@ Program twoDdipRY
   read (2,*) Nr, iStart, newW, &
        Gamma, blend0, rmsMax, rmscut
   if (Nr > mxNr) Then
-     write (*,"(a, ' *** Error: Nr (', i0, ') exceeds maximum mxNr (', i0, ')', a)") c_b_red, Nr, mxNr, c_reset
-     stop
+     call abort_on_error('Input parameter validation', 'Nr exceeds mxNr limit', real(Nr, 8))
   Endif
   read (2,*) nrt
   read(2,*) rtmin,rtmax
@@ -805,6 +933,8 @@ Program twoDdipRY
   Enddo
   rMax = root(Nr)/root(Ncore(1,1))
   qMax = root(Nr)/rMax
+  call check_scalar('Grid setup: rMax', 'rMax', rMax)
+  call check_scalar('Grid setup: qMax', 'qMax', qMax)
   r(0) = 0.0d0
   q(0) = 0.0d0
   do i = 1,Nr
@@ -913,6 +1043,8 @@ Program twoDdipRY
   ! Calculate long range functions
   !
   call lrfuncs(flr(0:Nr),tflr(0:Nr),r(0:Nr),q(0:Nr),Nr,ac)
+  call check_array_1d('Long-range potential flr', 'flr', flr(0:Nr))
+  call check_array_1d('Long-range transform tflr', 'tflr', tflr(0:Nr))
   !
   ! Loop over densities to compute derivatives
   !
@@ -1082,6 +1214,7 @@ Program twoDdipRY
                           sum0 = sum0+(r(i)*d0(i,j,k))**2
                        end do
                        rms = sqrt(dr(Nr)*sum0)
+                       call check_scalar('Picard loop: residual calculation', 'rms', rms)
                        if (rms .gt. rmsCut) then
                           blend = blend0
                        else
@@ -1115,13 +1248,13 @@ Program twoDdipRY
                              sSR(i,k,j) = sSR(i,j,k)
                           end do
                        else
-                          write (*,*) '*** Too many iterations. Quitting.'
-                          stop
+                          call abort_on_error('Picard loop', 'Maximum iteration count exceeded without convergence (iterMax)', real(iter, 8))
                        end if
                     end do
                  end do
                  if (mod(iter,10) == 0) then
                     write (3,90) iter, rms, (sSR(0,i,i),i=1,nsp)
+                    call check_array_3d('Picard loop: intermediate sSR', 'sSR', sSR(0:n, 1:nsp, 1:nsp))
                  endif
                  if (irho == 0 .and. mod(iter,50) == 0) then
                     write (*,"(a, i5, a, 1pe10.3, a, 0pf8.4, a, 0pf8.4, a)") &
@@ -1151,9 +1284,12 @@ Program twoDdipRY
                        end do
                     end do
                     write (3,100) (sSR(0,i,i), i=1,nsp)
+                    call check_array_3d('Picard loop: post-extrapolation sSR', 'sSR', sSR(0:n, 1:nsp, 1:nsp))
                  end if
                  !       End extrapolation attempt.
               enddo
+              call check_scalar('Picard loop: converged residual', 'rms', rms)
+              call check_array_3d('Picard loop: converged sSR', 'sSR', sSR(0:n, 1:nsp, 1:nsp))
               if (irho == 0) then
                  write (*,"(a, i5, a, 1pe10.3, a)") &
                       c_b_green // '   [Picard rho0] Converged in ' // c_b_yellow, iter, &
@@ -1252,6 +1388,10 @@ Program twoDdipRY
               P2 = (pi/(2.0d0*rhoTotal))*sumP2
               U = (pi/rhoTotal)*(sumU-sumUb)
               X = (1.0d0-(sumX/rhoTotal))
+              call check_scalar('Virial hard-disk component P1', 'P1', P1)
+              call check_scalar('Virial dipolar component P2', 'P2', P2)
+              call check_scalar('Internal energy U', 'U', U)
+              call check_scalar('Compressibility route X', 'X', X)
               if (irho == 0) then
                  Mrr0 = X
                  Mcc0 =  1 - (rho(1)*rho(2)/rhoTotal)*(ct(1,1)+ct(2,2)-2&
@@ -1263,6 +1403,12 @@ Program twoDdipRY
                  lamb2 = (Mrr0+Mcc0+sqrt((Mrr0-Mcc0)**2+4*Mrc0**2))/2
                  scc0 = X/((1-rho(1)*ct(1,1))*(1-rho(2)*ct(2,2))&
                    &-(rho(1)*rho(2))*ct(1,2)**2)
+                 call check_scalar('Fluctuation matrix Mrr(0)', 'Mrr0', Mrr0)
+                 call check_scalar('Fluctuation matrix Mcc(0)', 'Mcc0', Mcc0)
+                 call check_scalar('Fluctuation matrix Mrc(0)', 'Mrc0', Mrc0)
+                 call check_scalar('Spinodal eigenvalue lamb1', 'lamb1', lamb1)
+                 call check_scalar('Spinodal eigenvalue lamb2', 'lamb2', lamb2)
+                 call check_scalar('Concentration fluctuation scc0', 'scc0', scc0)
 
                  vrr = (lamb1-Mcc0)/sqrt((lamb1-Mcc0)**2+Mrc0**2)
                  
@@ -1349,8 +1495,14 @@ Program twoDdipRY
               Endif
            Enddo
            dPr = (rhot(1)*pres(1)-rhot(-1)*pres(-1))/(2*deltarho)
+           call check_scalar('Consistency route: dP*/drho', 'dPr', dPr)
            fopt = (xc(0)-dPr)
+           call check_scalar('Consistency route: fopt', 'fopt', fopt)
+           if (abs(xc(0)) < 1.0d-30) then
+              call abort_on_error('Consistency route', 'xc(0) is near zero, causing division-by-zero in ersig', xc(0))
+           end if
            ersig = abs(fopt/xc(0))
+           call check_scalar('Consistency route: ersig', 'ersig', ersig)
            if(osig) then
               write (*,"(a, i3, a, f9.6, a, f10.6, a, f10.6, a, f10.6, a, 1pe10.3, a)") &
                    c_magenta // '   [Consistency NR]' // c_reset // ' Step ' // c_yellow, its, &
@@ -1363,14 +1515,24 @@ Program twoDdipRY
               if(its.lt.2)then
                  eti = eta+dsig
               else
+                 if (abs(eta - eto) < 1.0d-14) then
+                    call abort_on_error('Consistency NR: stagnation', 'eta - eto is zero, cannot compute numerical derivative', eta)
+                 end if
                  fp = (fopt-fopto)/(eta-eto)
+                 call check_scalar('Consistency NR: derivative fp', 'fp', fp)
+                 if (abs(fp) < 1.0d-30) then
+                    call abort_on_error('Consistency NR: zero derivative', 'fp is zero, cannot perform Newton step', fp)
+                 end if
                  eti = eta - fopt/fp
               endif
+              call check_scalar('Consistency NR: updated eti', 'eti', eti)
               eto = eta
               fopto = fopt
               eta = eti
+              call check_scalar('Consistency NR: next eta', 'eta', eta)
            endif
         enddo
+        call check_scalar('Post-consistency final eta', 'eta', eta)
         if (osig) then
            write (*,"(a, i3, a, f9.6, a, 1pe10.3, a)") &
                 c_b_green // '   [Consistency NR] Converged in ' // c_b_yellow, its, &
@@ -1395,10 +1557,16 @@ Program twoDdipRY
            ssum = rhoi(j)*chempot0(j)+ssum
         Enddo
 
-        open(95,file='srq.dat')
-
 120     format (5x, 'HNC free energy: A1/NkT =', f8.5, ', A2/NkT =', f8.5, &
              ', Aex/NkT =', f8.5)
+
+        !     Pre-flight validation before storing solution to solout.dat
+        call check_array_3d('Pre-save solution validation', 'sSR', sSR(0:n, 1:nsp, 1:nsp))
+        call check_scalar('Pre-save validation: pres(0)', 'pres(0)', pres(0))
+        call check_scalar('Pre-save validation: uint(0)', 'uint(0)', uint(0))
+        call check_scalar('Pre-save validation: xc(0)', 'xc(0)', xc(0))
+        call check_scalar('Pre-save validation: lambda1', 'lamb1', lamb1)
+        call check_scalar('Pre-save validation: eta', 'eta', eta)
 
         !     Save solution.
         open  (17,file=OUTfile,status='unknown')
@@ -1412,6 +1580,7 @@ Program twoDdipRY
         close (17,status='keep')
         open(22,file='gr.dat')
         open(23,file='sq.dat')
+        open(95,file='srq.dat')
         do j=1,nsp
            do k=1, nsp
               y1 = rho(j)*rho(k)/rhoTotal*(2.0d0*pi*rMax/qMax)&
@@ -1447,6 +1616,9 @@ Program twoDdipRY
         sq0 = sum(sjk(:,:))
         sq110 = sjk(1,1)
         sq220 = sjk(2,2)
+        call check_scalar('Structure factor Sq_0', 'sq0', sq0)
+        call check_scalar('Structure factor Sq11_0', 'sq110', sq110)
+        call check_scalar('Structure factor Sq22_0', 'sq220', sq220)
         unfound = .true.
         write(95,'(12f15.7)')q(0),(sjk(j,j)*rhoTotal/rho(j),j=1,nsp)
         do i=1, n
@@ -1479,6 +1651,10 @@ Program twoDdipRY
         close(22)
         close(23)
         close(95)
+        call check_scalar('Structure factor peak Sq_max', 'sqmax', sqmax)
+        if (sqmax > 0.0d0) then
+           call check_scalar('Fluctuation ratio Sq0/Sqmax', 'sq0/sqmax', sq0/sqmax)
+        end if
         if (sq110 > 0.0d0 .and. sq220 > 0.0d0) then
            scale_21 = (sq220 / sq110)**0.25d0
         else
@@ -1648,6 +1824,7 @@ Program twoDdipRY
 
   close(88)
   close(3, status='keep')
+  call safe_close_all()
 end program twoDdipRY
 
 
