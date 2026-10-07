@@ -8,6 +8,25 @@
 !   - Adapted & modified for 2D parallel dipoles by E. Lomba (2018 - 2021)
 !   - Final optimization, modularization, documentation & MKL tuning (2026)
 !
+! PUBLICATIONS & CITATIONS:
+!   This code and its integral equation methodology have been employed in:
+!   1. G. Pellicane, E. Lomba, and F. Saija,
+!      "Theory and equation of state of two-component nonadditive hard-disks:
+!       an application in the colloidal regime",
+!      Physics and Chemistry of Liquids 60(3), 463-484 (2022).
+!      DOI: 10.1080/00319104.2021.2021521
+!
+!   2. Z. Ma, E. Lomba, and S. Torquato,
+!      "Optimized Large Hyperuniform Binary Colloidal Suspensions in Two Dimensions",
+!      Physical Review Letters 125(6), 068002 (2020).
+!      DOI: 10.1103/PhysRevLett.125.068002
+!
+! METHODOLOGICAL REFERENCES:
+!   - Rogers-Young closure: F. J. Rogers & D. A. Young, Phys. Rev. A 30, 999 (1984).
+!   - 2D Hankel quadrature grid: F. Lado, J. Comput. Phys. 8, 417 (1971).
+!   - Ng acceleration scheme: K.-C. Ng, J. Chem. Phys. 61, 2680 (1974).
+!   - Fluctuation / Spinodal Formalism: A. B. Bhatia & D. E. Thornton, Phys. Rev. B 2, 3004 (1970).
+!
 ! DESCRIPTION:
 !   Solves the Ornstein-Zernike (OZ) integral equation with the Rogers-Young
 !   (RY) closure for two-dimensional (2D), binary (N_sp = 2) mixtures of
@@ -760,10 +779,16 @@ Program twoDdipRY
   !     adapted and modified to F90 syntax by E. Lomba, Jan. 2018.
   !     Last FL change:  FL   20 Nov 2008   11:49 am
   !     Uses setupW, E1, Bpc2D, BpyLR, Hankel
-
-  !     This program solves the Ornstein-Zernike equation with RHNC closure
+  !
+  !     Publications where this code and methodology were used:
+  !     - G. Pellicane, E. Lomba, and F. Saija, Phys. Chem. Liq. 60(3), 463-484 (2022).
+  !       DOI: 10.1080/00319104.2021.2021521
+  !     - Z. Ma, E. Lomba, and S. Torquato, Phys. Rev. Lett. 125(6), 068002 (2020).
+  !       DOI: 10.1103/PhysRevLett.125.068002
+  !
+  !     This program solves the Ornstein-Zernike equation with RY closure
   !     for the pair distribution functions and thermodynamics of a
-  !     two-dimensional N-component charged hard disks with ln(r) potentials.
+  !     two-dimensional N-component charged hard disks with 1/r^3 dipole potentials.
 
   !     NOTE: Let FTf(q;j,k) be the 2D Fourier transform of a function f(r;j,k).
   !           Then, in the program, the computed transform is

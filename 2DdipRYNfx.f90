@@ -14,10 +14,16 @@ Program twoDdipRY
   !     adapted and modified to F90 syntax by E. Lomba, Jan. 2018.
   !     Last FL change:  FL   20 Nov 2008   11:49 am
   !     Uses setupW, E1, Bpc2D, BpyLR, Hankel
-
-  !     This program solves the Ornstein-Zernike equation with RHNC closure
+  !
+  !     Publications where this code and methodology were used:
+  !     - G. Pellicane, E. Lomba, and F. Saija, Phys. Chem. Liq. 60(3), 463-484 (2022).
+  !       DOI: 10.1080/00319104.2021.2021521
+  !     - Z. Ma, E. Lomba, and S. Torquato, Phys. Rev. Lett. 125(6), 068002 (2020).
+  !       DOI: 10.1103/PhysRevLett.125.068002
+  !
+  !     This program solves the Ornstein-Zernike equation with RY closure
   !     for the pair distribution functions and thermodynamics of a
-  !     two-dimensional N-component charged hard disks with ln(r) potentials.
+  !     two-dimensional N-component charged hard disks with 1/r^3 dipole potentials.
 
   !     NOTE: Let FTf(q;j,k) be the 2D Fourier transform of a function f(r;j,k).
   !           Then, in the program, the computed transform is

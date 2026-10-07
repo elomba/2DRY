@@ -162,3 +162,45 @@ To prevent runaway divergences from silently generating corrupted output files o
   - Newton–Raphson consistency derivatives ($\partial P^*/\partial\rho$, $f_{opt}$, $f'$), and parameter updates ($\eta, \tilde{\eta}$).
 - **Pre-Flight Restart Protection**: Rigorously verifies that the indirect correlation array $s_{SR}$ and all state observables are strictly finite **before** opening or writing to `solout.dat`. If a NaN or Inf is detected, calculations halt immediately and previous valid restart files remain untouched.
 - **Graceful File Cleanup**: In the event of a fatal numerical divergence or upon normal completion, `safe_close_all()` flushes write buffers and closes all active file handles (units `2`, `3`, `15`, `16`, `17`, `22`, `23`, `88`, `95`, `230`).
+
+---
+
+## 9. References & Associated Publications
+
+### Research Publications Using This Code
+This software package and its underlying integral equation theoretical framework have been employed in the following publications:
+
+1. **Two-Component Non-Additive Hard-Disk Mixtures:**  
+   G. Pellicane, E. Lomba, and F. Saija,  
+   *"Theory and equation of state of two-component nonadditive hard-disks: an application in the colloidal regime"*,  
+   *Physics and Chemistry of Liquids* **60**(3), 463–484 (2022).  
+   DOI: [10.1080/00319104.2021.2021521](https://doi.org/10.1080/00319104.2021.2021521)
+
+2. **Hyperuniform Binary Colloidal Suspensions:**  
+   Z. Ma, E. Lomba, and S. Torquato,  
+   *"Optimized Large Hyperuniform Binary Colloidal Suspensions in Two Dimensions"*,  
+   *Physical Review Letters* **125**(6), 068002 (2020).  
+   DOI: [10.1103/PhysRevLett.125.068002](https://doi.org/10.1103/PhysRevLett.125.068002)
+
+### Foundational Methodological References
+- **Rogers–Young (RY) Closure:**  
+  F. J. Rogers and D. A. Young,  
+  *"New thermodynamic addition to the hypernetted-chain and Percus-Yevick approximations"*,  
+  *Physical Review A* **30**(2), 999–1007 (1984).  
+  DOI: [10.1103/PhysRevA.30.999](https://doi.org/10.1103/PhysRevA.30.999)
+- **Two-Dimensional Hankel Numerical Quadrature:**  
+  F. Lado,  
+  *"Numerical Fourier transforms in one and two dimensions"*,  
+  *Journal of Computational Physics* **8**(3), 417–433 (1971).  
+  DOI: [10.1016/0021-9991(71)90021-0](https://doi.org/10.1016/0021-9991(71)90021-0)
+- **Ng Accelerated Picard Iteration:**  
+  K.-C. Ng,  
+  *"Hypernetted-chain solutions of the liquid-state Ornstein-Zernike equation using a fast accelerated convergence method"*,  
+  *The Journal of Chemical Physics* **61**(7), 2680–2689 (1974).  
+  DOI: [10.1063/1.1682399](https://doi.org/10.1063/1.1682399)
+- **Fluctuation and Spinodal Decomposition Formalism:**  
+  A. B. Bhatia and D. E. Thornton,  
+  *"Structural Aspects of the Electrical Resistivity of Binary Alloys"*,  
+  *Physical Review B* **2**(8), 3004–3012 (1970).  
+  DOI: [10.1103/PhysRevB.2.3004](https://doi.org/10.1103/PhysRevB.2.3004)
+

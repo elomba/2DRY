@@ -2,6 +2,21 @@
 
 All notable changes to the `twoDdipRY` package are documented in this file.
 
+## [2026-10-07] - Publication Citations & Methodological References
+
+### Added
+- **Publication Citations in Source Codes & Documentation**:
+  - Added dedicated citation headers in `2DdipRYN_final.f90` (as well as `2DdipRYN.f90`, `2DdipRYN2.f90`, and `2DdipRYNfx.f90`) referencing key scientific articles where this codebase and integral equation framework have been used:
+    - G. Pellicane, E. Lomba, and F. Saija, *"Theory and equation of state of two-component nonadditive hard-disks: an application in the colloidal regime"*, *Phys. Chem. Liq.* **60**(3), 463–484 (2022). DOI: `10.1080/00319104.2021.2021521`.
+    - Z. Ma, E. Lomba, and S. Torquato, *"Optimized Large Hyperuniform Binary Colloidal Suspensions in Two Dimensions"*, *Phys. Rev. Lett.* **125**(6), 068002 (2020). DOI: `10.1103/PhysRevLett.125.068002`.
+  - Added foundational methodological references in source code comments:
+    - Rogers–Young closure (Rogers & Young, 1984)
+    - 2D Hankel quadrature grid (Lado, 1971)
+    - Ng acceleration scheme (Ng, 1974)
+    - Fluctuation and spinodal decomposition formalism (Bhatia & Thornton, 1970)
+- **README Section 9 (References & Associated Publications)**:
+  - Documented full citations with complete article titles, journal volumes, and clickable DOI hyperlinks in `README.md`.
+
 ## [2026-10-07] - NaN/Inf Numerical Monitoring & Safe File Cleanup
 
 ### Added
