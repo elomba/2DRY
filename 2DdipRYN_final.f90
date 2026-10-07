@@ -659,9 +659,24 @@ Program twoDdipRY
        & eti, eto, fopto, fp, rmscut, rtmin, rtmax, xf(100), R01, R02&
        &, sq110, sq220, sums2, s2ex, sumcjk, ct(2,2), Mrr0, Mrc0,&
        & Mcc0, lamb1, lamb2, vrr, vcc, csrnc(2,2), scc0
+  integer, parameter :: maxStates = 1000
+  integer :: nStateDone, istate
+  real(kind=8) :: res_rho(maxStates), res_x2(maxStates), res_P(maxStates), &
+                  res_U(maxStates), res_xc(maxStates), res_dPr(maxStates), &
+                  res_eta(maxStates), res_lamb1(maxStates), &
+                  res_invScc(maxStates), res_sqmax(maxStates)
   real(kind=8), external :: E1, mk
   logical :: unfound, osig, solve
   lwork = 2*nsp
+  nStateDone = 0
+
+  !     Program banner
+  write (*,"(/'================================================================================')")
+  write (*,"('                                   twoDdipRY')")
+  write (*,"('        2D Dipolar Hard Disk Liquid-State Integral Equation Solver')")
+  write (*,"('          Rogers-Young (RY) Closure with Thermodynamic Consistency')")
+  write (*,"('================================================================================')")
+
   !     Read input parameters.
   write(fname,"('2DdipHD',i1,'c_map.dat')") nsp
   write(fnameo,"('2DdipdHD',i1,'c_out.dat')") nsp
@@ -669,7 +684,7 @@ Program twoDdipRY
   read (2,*) Nr, iStart, newW, &
        Gamma, blend0, rmsMax, rmscut
   if (Nr > mxNr) Then
-     print *, ' ** Eror Nr > ',mxNr
+     write (*,"(' *** Error: Nr (', i0, ') exceeds maximum mxNr (', i0, ')')") Nr, mxNr
      stop
   Endif
   read (2,*) nrt
@@ -687,7 +702,8 @@ Program twoDdipRY
   r02 = r02*r01
   read (2, *) eta, dsig, tol, osig
   close (2,status='keep')
-  !     Echo input parameters.
+
+  !     Echo input parameters to log file (unit 3).
   open  (3,file=fnameo,status='unknown')
   write (3,'(3i10/11f15.7)') Nr,  iStart, newW, &
        Gamma, z(1:nsp)
@@ -697,14 +713,6 @@ Program twoDdipRY
   write (3,30) FTtables
   write (3,30) INfile
   write (3,30) OUTfile
-  write (*,'(3i10/11f15.7)') Nr,  iStart, newW, &
-       Gamma, z(1:nsp)
-  do i=1,nsp
-     write (*,'(5i10)')Ncore(i,i:nsp)
-  Enddo
-  write (*,30) FTtables
-  write (*,30) INfile
-  write (*,30) OUTfile
 10 format (6i5/5f10.5)
 20 format (/' PROGRAM 2DdipRY' &
        /' Iterative solution of the RY equation for 2D N-component&
@@ -719,15 +727,19 @@ Program twoDdipRY
   !     Set up tables for Hankel transforms.
   open (15,file=FTtables,status='unknown')
   if (newW .eq. 1) then ! calculate needed FT tables; save for later reuse.
-     write (*,*) ' Please wait. Creating W table...'
+     write (*,"(' [Hankel Tables] Calculating Bessel roots and quadrature weights...')")
+     write (*,"('                 Saving precomputed tables to ', a, '...')") trim(FTtables)
      call setupW(Nr)
      write (15,40) ((W(i,j), i = 1,Nr-1), j = 1,Nr-1)
      write (15,40) (BJ1sq(i), i = 1,Nr)
      write (15,40) (root(i), i = 1,Nr)
+     write (*,"(' [Hankel Tables] Tables successfully generated.')")
   else ! read in stored tables.
+     write (*,"(' [Hankel Tables] Loading precomputed quadrature tables from: ', a)") trim(FTtables)
      read (15,40) ((W(i,j), i = 1,Nr-1), j = 1,Nr-1)
      read (15,40) (BJ1sq(i), i = 1,Nr)
      read (15,40) (root(i), i = 1,Nr)
+     write (*,"(' [Hankel Tables] Tables loaded successfully.')")
   end if
   close (15,status='keep')
 40 format (6f12.6)
@@ -761,9 +773,50 @@ Program twoDdipRY
   end do
   do i=1,nsp
      write (3,50) sigma(i,i:nsp)
-     write (*,50) sigma(i,i:nsp)
-     write (*,"(' gamma(i,j) =', 5f15.10)") (gamma*z(i)*z(j),j=1,nsp)
   Enddo
+
+  !     Echo system parameters and configuration to stdout
+  write (*,"(/'--------------------------------------------------------------------------------')")
+  write (*,"(' SYSTEM CONFIGURATION & PARAMETERS')")
+  write (*,"('--------------------------------------------------------------------------------')")
+  write (*,"(' Radial Grid & Quadrature:')")
+  write (*,"('   Grid points (Nr)       : ', i8, 6x, 'r_max = ', f10.5, ', q_max = ', f10.5)") Nr, rMax, qMax
+  write (*,"('   Hankel table file      : ', a)") trim(FTtables)
+  if (iStart .eq. 1) then
+     write (*,"('   Restart mode           : Restart solution from ', a)") trim(INfile)
+  else
+     write (*,"('   Restart mode           : Fresh start (short-range ideal gas)')")
+  end if
+  write (*,"('   Restart output file    : ', a)") trim(OUTfile)
+  write (*,*)
+  write (*,"(' Interaction Potentials:')")
+  write (*,"('   Dipolar coupling Gamma : ', 1pe12.5)") Gamma
+  write (*,"('   Species dipole moments : z(1) = ', f9.4, ', z(2) = ', f9.4)") z(1), z(2)
+  write (*,"('   Cross-interaction scale: lambda(1,2) = ', f8.4)") lambda
+  write (*,"('   Core shrink factor     : ', f8.4)") shrink
+  write (*,"('   Hard-core diameters    : sigma(1,1) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(1,1), Ncore(1,1)
+  write (*,"('                            sigma(1,2) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(1,2), Ncore(1,2)
+  write (*,"('                            sigma(2,2) = ', f8.4, ' (Ncore = ', i5, ')')") sigma(2,2), Ncore(2,2)
+  write (*,"('   Effective couplings    : gamma(1,1) = ', 1pe12.5, ', gamma(1,2) = ', 1pe12.5)") &
+       Gamma*z(1)*z(1), Gamma*lambda*z(1)*z(2)
+  write (*,"('                            gamma(2,2) = ', 1pe12.5)") Gamma*z(2)*z(2)
+  write (*,*)
+  write (*,"(' Numerical Solver & Closure Settings:')")
+  write (*,"('   Picard mixing parameter: blend0 = ', f8.4, ', rms_cut = ', 1pe10.3)") blend0, rmscut
+  write (*,"('   Picard convergence tol : rms_max = ', 1pe10.3, ', max_iters = ', i6)") rmsMax, iterMax
+  if (osig) then
+     write (*,"('   Thermodynamic closure  : Rogers-Young with Newton-Raphson consistency')")
+     write (*,"('                            Initial eta = ', f8.4, ', d_eta = ', f9.4, ', tol = ', 1pe10.3)") &
+          eta, dsig, tol
+  else
+     write (*,"('   Thermodynamic closure  : Rogers-Young with FIXED eta = ', f8.4)") eta
+  end if
+  write (*,*)
+  write (*,"(' State Scan Setup:')")
+  write (*,"('   Density range [min,max]: [', f8.4, ', ', f8.4, '] in ', i3, ' interval(s)')") &
+       rtmin, rtmax, nrt
+  write (*,"('   Composition points     : ', i3, ' point(s) for x2')") nxf
+  write (*,"('--------------------------------------------------------------------------------')")
 
 50 format (/5x, 'sigma(i,j) =',5f15.10)
 
@@ -782,11 +835,9 @@ Program twoDdipRY
      end do
      close (16,status='keep')
      write (3,60)
-     write (*,60)
      write (3,70) NrIn, i2, i3, &
           a1, a2, a3, a4, a5
-     write (*,70) NrIn, i2, i3, &
-          a1, a2, a3, a4, a5
+     write (*,"('   [Restart] Successfully loaded initial solution from ', a, ' (Nr = ', i5, ')')") trim(INfile), NrIn
   else ! from SR ideal gas.
      do j = 1,nsp
         do k = j,nsp
@@ -824,13 +875,24 @@ Program twoDdipRY
      end do
   end do
   do inr = 0, nrt
-     rhoTotal0=rtmin +inr*(rtmax-rtmin)/nrt
+     if (nrt > 0) then
+        rhoTotal0 = rtmin + inr*(rtmax-rtmin)/real(nrt, 8)
+     else
+        rhoTotal0 = rtmin
+     endif
      do ixf=1,nxf
         ersig = 100.0
         its = 0
         solve = .true.
         rhoi(1) = (1-xf(ixf))*rhoTotal0
         rhoi(2) = xf(ixf)*rhoTotal0
+
+        write (*,*)
+        write (*,"('================================================================================')")
+        write (*,"(' STATE POINT: rho_tot = ', f8.4, ' | x2 = ', f8.4, ' (rho1 = ', f8.4, ', rho2 = ', f8.4, ')')") &
+             rhoTotal0, xf(ixf), rhoi(1), rhoi(2)
+        write (*,"('================================================================================')")
+
         do while (ersig > tol .and. solve)
            if (.not. osig) solve = .false.
 
@@ -839,8 +901,6 @@ Program twoDdipRY
               rho(1:nsp)=rhoi(1:nsp)*(1+irho*deltarho/sum(rhoi(1:nsp)))
               rhoTotal = sum(rho(1:nsp))
               rhot(irho) = rhoTotal
-              print *, rhot(irho)
-              print *, rho(1:nsp)
               rhoHat(1:nsp) = (2.0d0*pi*rMax/qMax)*rho(1:nsp)
               do j = 1,nsp
                  do k = 1,nsp
@@ -850,7 +910,6 @@ Program twoDdipRY
               end do
               !     Start iterations ...
               write (3,80)(i,i,i=1,nsp)
-              write (*,80)(i,i,i=1,nsp)
 80            format (/13x, 'iter', 7x, 'rms', 8x, 5('sSR(',i1,i1,')',4x:))
               iext = next
               iter = 0
@@ -999,7 +1058,10 @@ Program twoDdipRY
                  end do
                  if (mod(iter,10) == 0) then
                     write (3,90) iter, rms, (sSR(0,i,i),i=1,nsp)
-                    write (*,90) iter, rms, (sSR(0,i,i),i=1,nsp)
+                 endif
+                 if (irho == 0 .and. mod(iter,50) == 0) then
+                    write (*,"('   [Picard rho0] Iteration ', i5, ' : rms = ', 1pe10.3, ' | sSR(1,1) = ', 0pf8.4, ', sSR(2,2) = ', 0pf8.4)") &
+                         iter, rms, (sSR(0,i,i), i=1,nsp)
                  endif
 90               format (10x, i6, 1pe13.2, 0pf12.4, 5f12.4)
                  !     End Ng acceleration.
@@ -1021,10 +1083,12 @@ Program twoDdipRY
                        end do
                     end do
                     write (3,100) (sSR(0,i,i), i=1,nsp)
-                    write (*,100) (sSR(0,i,i), i=1,nsp)
                  end if
                  !       End extrapolation attempt.
               enddo
+              if (irho == 0) then
+                 write (*,"('   [Picard rho0] Converged in ', i5, ' iterations (rms = ', 1pe10.3, ')')") iter, rms
+              endif
 100           format (13x, 'ext', 13x, 5f12.4)
               !     End Picard iteration.
 
@@ -1132,8 +1196,6 @@ Program twoDdipRY
                  vrr = (lamb1-Mcc0)/sqrt((lamb1-Mcc0)**2+Mrc0**2)
                  
                  vcc = Mrc0/sqrt((lamb1-Mcc0)**2+Mrc0**2)
-                 print *," n1 =", (Mrr0-lamb1)*vrr+Mrc0*vcc
-                 print *," n2 =",  (Mcc0-lamb1)*vcc+Mrc0*vrr
               endif
               pres(irho) = P1+P2
               uint(irho) = U
@@ -1179,7 +1241,6 @@ Program twoDdipRY
                     s2ex = -pi*rho(j)*rho(k)*sums2/rhoTotal0
                  endif
               Enddo
-              print *, 'sums=',sums2 
               sumA1 = 0.0d0
               do j = 1,nsp
                  do k = 1,nsp
@@ -1220,49 +1281,38 @@ Program twoDdipRY
            fopt = (xc(0)-dPr)
            ersig = abs(fopt/xc(0))
            if(osig) then
+              write (*,"('   [Consistency NR] Step ', i3, ' : eta = ', f9.6, ' | chi^-1 = ', f10.6, ' | dP/drho = ', f10.6, ' | diff = ', f10.6, ' | rel_err = ', 1pe10.3)") &
+                   its, eta, xc(0), dPr, fopt, ersig
               if(its.lt.2)then
                  eti = eta+dsig
               else
-                 !
-                 !    discrete NR
-                 !
                  fp = (fopt-fopto)/(eta-eto)
-                 !           if (abs(fopt/fp) > abs(2*dsig)) then
-                 !              eti = eta - sign(2*dsig,fopt/fp)
-                 !           else
                  eti = eta - fopt/fp
-                 !           endif
               endif
               eto = eta
               fopto = fopt
               eta = eti
            endif
-           Write(*,'(" iter=", i4, " Ersig =", f10.6, " eta=", f10.6," fopt=&
-                &",f10.6)') iter, ersig, eta, fopt
-           write(*, "(' xc0=',f10.6,' dP/drho =',f10.6)")xc(0), dPr
         enddo
-        write(*, "(' drho/dP =',f12.7,' Fopt',f12.7)")1.0/dPr,fopt
+        if (osig) then
+           write (*,"('   [Consistency NR] Converged in ', i3, ' step(s)! Final eta = ', f9.6, ' (tol = ', 1pe10.3, ')')") &
+                its, eto, tol
+           eta = eto
+        else
+           write (*,"('   [Rogers-Young] Evaluated with fixed eta = ', f9.6)") eta
+        endif
         write (3,101) Gamma, (i,rhoi(i),i=1,nsp)
-        write (*,101) Gamma, (i,rhoi(i),i=1,nsp)
         write (3,"(5(' z(',i1,') =',f8.4,',':))") (i,z(i),i=1,nsp)
-        write (*,"(5(' z(',i1,') =',f8.4,',':))") (i,z(i),i=1,nsp)
 101     format (/' Thermodynamics of a 2D 1/r^3 using the RY equation' &
              /' with Rogers-Young (RY) closure' &
              /' Gamma =', f8.4, ',', 5('rho(',i1,') =', f8.4,',':))
         write (3,110) pres(0), uint(0), xc(0), P10, P20
-        write (*,110) P10+P20, U0, X0, P10, P20
 110     format (5x, 'pA/NkT =', f15.4, ', U/NkT =', f15.4, ', NkTX/A =', f8.4/ &
              12x, '=', f15.4, '  (HD)'/12x, '=', f15.4, '  (QQ)')
-        !  write (3,120) A10, A20, A10+A20
-        !  write (*,120) A10, A20, A10+A20
         ssum =0
         do j=1,nsp
            ssum = rhoi(j)*chempot0(j)+ssum
-           !    write(*,"(' mu^ex(',i1,')/kT=',f10.5)")j,chempot0(j)
-           !    write(3,"(' mu^ex(',i1,')/kT=',f10.5)")j,chempot0(j)
         Enddo
-        ! write(*,'(" A^ex/NkT(from mu)=",f10.5)')ssum/sum(rhoi(1:nsp))-(pres(0)-1)
-        ! write(3,'(" A^ex/NkT(from mu)=",f10.5)')ssum/sum(rhoi(1:nsp))-(pres(0)-1)
 
         open(95,file='srq.dat')
 
@@ -1279,7 +1329,6 @@ Program twoDdipRY
            end do
         end do
         close (17,status='keep')
-        close (3,status='keep')
         open(22,file='gr.dat')
         open(23,file='sq.dat')
         do j=1,nsp
@@ -1352,8 +1401,66 @@ Program twoDdipRY
         write(88,"(16f12.6)")rhoTotal0,xf(ixf),uint(0), pres(0), xc(0), dPr, eta&
              &, sqmax, sq0, sq0/sqmax,(sq220/(sq110))**0.25, s2ex,&
              & lamb1, lamb2,  1.0/scc0
-        R02 = R01/((sq220)/(sq110))**0.25
-        print *, ' Optimum R01/R02=', R01/R02
+        if (sq110 > 0.0d0 .and. sq220 > 0.0d0) then
+           R02 = R01/((sq220)/(sq110))**0.25d0
+        else
+           R02 = R01
+        end if
+
+        !     Print comprehensive state results
+        write (*,"(/'--------------------------------------------------------------------------------')")
+        write (*,"(' RESULTS FOR STATE POINT: rho = ', f8.4, ', x2 = ', f8.4)") rhoTotal0, xf(ixf)
+        write (*,"('--------------------------------------------------------------------------------')")
+        write (*,"(' Thermodynamics & Equation of State:')")
+        write (*,"('   Compressibility factor (Z = P/(rho*kT)) : ', f12.6)") pres(0)
+        write (*,"('     - Hard-disk core contribution (Z_HD)  : ', f12.6)") P10
+        write (*,"('     - Dipolar interaction (Z_dip)         : ', f12.6)") P20
+        write (*,"('   Reduced internal energy (U / (N*kT))    : ', f12.6)") uint(0)
+        write (*,"('   Excess two-body entropy (S2_ex / kB)    : ', f12.6)") s2ex
+        write (*,*)
+        write (*,"(' Thermodynamic Consistency & Response:')")
+        write (*,"('   Rogers-Young parameter (eta)            : ', f12.6)") eta
+        write (*,"('   Inverse compressibility (chi^-1)        : ', f12.6)") xc(0)
+        write (*,"('   Virial pressure derivative (dP*/drho)   : ', f12.6)") dPr
+        write (*,"('   Isothermal compressibility (drho/dP*)   : ', f12.6)") 1.0d0 / dPr
+        write (*,"('   Consistency discrepancy (f_opt)         : ', f12.6, '  (rel_err = ', 1pe10.3, ')')") fopt, ersig
+        write (*,*)
+        write (*,"(' Fluctuation & Spinodal Stability (Bhatia-Thornton):')")
+        write (*,"('   Zero-wavevector response matrix elements:')")
+        write (*,"('     Mrr(0) = ', f12.6, ', Mcc(0) = ', f12.6, ', Mrc(0) = ', f12.6)") Mrr0, Mcc0, Mrc0
+        write (*,"('   Spinodal eigenvalues (lambda1, lambda2) : ', f12.6, ', ', f12.6)") lamb1, lamb2
+        if (lamb1 > 1.0d-5) then
+           write (*,"('   Spinodal stability status               : STABLE (lambda1 > 0)')")
+        else if (lamb1 >= 0.0d0) then
+           write (*,"('   Spinodal stability status               : NEAR SPINODAL MARGIN (lambda1 ~ 0)')")
+        else
+           write (*,"('   Spinodal stability status               : UNSTABLE / DEMIXING (lambda1 < 0)')")
+        end if
+        write (*,"('   Concentration fluctuation S_cc(0)       : ', f12.6, '  (1/S_cc(0) = ', f12.6, ')')") scc0, 1.0d0 / scc0
+        write (*,*)
+        write (*,"(' Structure Factor Highlights:')")
+        write (*,"('   Peak of total structure factor S(q)_max : ', f12.6)") sqmax
+        write (*,"('   Zero-wavevector structure factor S(0)   : ', f12.6)") sq0
+        write (*,"('   Fluctuation ratio S(0) / S(q)_max       : ', f12.6)") sq0 / sqmax
+        if (sq110 > 0.0d0 .and. sq220 > 0.0d0) then
+           write (*,"('   Disk size scaling (S22(0)/S11(0))^0.25  : ', f12.6)") (sq220 / sq110)**0.25d0
+        end if
+        write (*,"('   Optimum form factor radius ratio R01/R02: ', f12.6)") R01 / R02
+        write (*,"('--------------------------------------------------------------------------------')")
+
+        if (nStateDone < maxStates) then
+           nStateDone = nStateDone + 1
+           res_rho(nStateDone) = rhoTotal0
+           res_x2(nStateDone) = xf(ixf)
+           res_P(nStateDone) = pres(0)
+           res_U(nStateDone) = uint(0)
+           res_xc(nStateDone) = xc(0)
+           res_dPr(nStateDone) = dPr
+           res_eta(nStateDone) = eta
+           res_lamb1(nStateDone) = lamb1
+           res_invScc(nStateDone) = 1.0d0 / scc0
+           res_sqmax(nStateDone) = sqmax
+        end if
         open(230,file='sqopt.dat')
         do j=1,nsp
            do k=1, nsp
@@ -1417,6 +1524,35 @@ Program twoDdipRY
 
      enddo
   Enddo
+
+  !     Summary table of all computed state points
+  if (nStateDone > 0) then
+     write (*,"(/'================================================================================')")
+     write (*,"('                     SUMMARY OF COMPUTED STATE POINTS')")
+     write (*,"('================================================================================')")
+     write (*,"('   rho       x2      P/(rho*kT)   U/(N*kT)      chi^-1     dP*/drho     eta       lambda1       1/Scc(0)    S(q)_max')")
+     write (*,"('--------------------------------------------------------------------------------')")
+     do istate = 1, nStateDone
+        write (*,"(f8.4, 1x, f8.4, 1x, f12.6, 1x, f11.6, 1x, f11.6, 1x, f11.6, 1x, f8.4, 1x, f11.6, 1x, f11.6, 1x, f10.4)") &
+             res_rho(istate), res_x2(istate), res_P(istate), res_U(istate), &
+             res_xc(istate), res_dPr(istate), res_eta(istate), &
+             res_lamb1(istate), res_invScc(istate), res_sqmax(istate)
+     end do
+     write (*,"('================================================================================')")
+  end if
+
+  write (*,"(/' Output files written:')")
+  write (*,"('   * thermo.dat : Thermodynamic table & spinodal stability metrics')")
+  write (*,"('   * gr.dat     : Pair radial distribution functions g_jk(r)')")
+  write (*,"('   * sq.dat     : Structure factors S_jk(q) and S_cc(q)')")
+  write (*,"('   * sqopt.dat  : Optical form-factor folded structure factors')")
+  write (*,"('   * srq.dat    : Scaled partial structure factors')")
+  write (*,"('   * solout.dat : Converged solution vector s_SR(r; j,k) for restart')")
+  write (*,"(/' Program twoDdipRY completed successfully.')")
+  write (*,"('================================================================================'/)")
+
+  close(88)
+  close(3, status='keep')
 end program twoDdipRY
 
 

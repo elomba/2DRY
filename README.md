@@ -15,6 +15,7 @@ The codes solve the 2D Ornstein–Zernike (OZ) relation using Hankel ($J_0$) tra
   - Precomputes invariant potentials and reciprocals in the iterative core.
   - Self-contained double-precision SLATEC module (`bessel_slatec_mod`) for modified Bessel functions.
   - Complete in-source documentation.
+  - Structured, formatted terminal output with clear headers, real-time convergence tracking, and comprehensive thermodynamic and spinodal stability summaries.
 - **`2DdipRYN2.f90`** (Historical version, Sep 2021): Regular density grid scan + spinodal fluctuation analysis.
 - **`2DdipRYNfx.f90`** (Historical version, Jun 2021): Outer loop over discrete density list from `2DdipHD2c_list.dat`.
 - **`2DdipRYN.f90`** (Historical base version, Jan 2021): Single-density evaluation with composition scan.
@@ -28,6 +29,7 @@ The codes solve the 2D Ornstein–Zernike (OZ) relation using Hankel ($J_0$) tra
 
 ### Documentation
 - **`README.md`**: This guide.
+- **`Changelog.md`**: Detailed log of updates, output beautification, and bug fixes.
 - **`COMPARISON.md`**: Detailed comparative scientific and technical analysis of the codes, optimization benchmarks, and validation results.
 
 ### Reference Output Files
@@ -127,3 +129,20 @@ Each line corresponds to specific program variables:
 - **`gr.dat`** (Unit 22): Radial distribution functions: column 1 is $r$, columns 2–5 are $g_{11}(r), g_{12}(r), g_{21}(r), g_{22}(r)$.
 - **`sq.dat`** (Unit 23): Structure factors: wavevector $q$, reduced wavevector $q/\sqrt{\rho}$, $S_{jk}(q)$, total $S(q)$, form-factor folded structure factors, and concentration structure factor $S_{cc}(q)$.
 - **`solout.dat`**: Restart vector $s_{SR}(r; j, k)$ for subsequent runs with `iStart = 1`.
+
+---
+
+## 7. Terminal Output & Diagnostics
+
+When executed, `2DdipRYN_final` prints a structured, readable report to standard output:
+
+1. **System Configuration**: Displays grid parameters ($N_r$, $r_{max}$, $q_{max}$), interaction parameters ($\Gamma$, $z_i$, $\lambda_{12}$, $\sigma_{jk}$, $\gamma_{jk}$), solver tolerances, and density/composition scan ranges.
+2. **Convergence Progress**:
+   - Displays periodic Picard iteration convergence (every 50 iterations) and final iteration count on the central physical state $\rho$.
+   - Displays step-by-step Newton–Raphson consistency progress ($\eta$, $\chi^{-1}$, $\partial P^*/\partial\rho$, consistency discrepancy $f_{opt}$, and relative error).
+3. **State Point Results**:
+   - **Thermodynamics & Equation of State**: Total compressibility factor $Z = P/(\rho k_BT)$ decomposed into hard disk ($Z_{HD}$) and dipolar ($Z_{dip}$) virials, reduced internal energy $U/(Nk_BT)$, and excess two-body entropy $S_2^{ex}/k_B$.
+   - **Thermodynamic Consistency & Response**: Rogers–Young parameter $\eta$, inverse compressibility $\chi^{-1}$, virial pressure derivative $\partial P^*/\partial\rho$, isothermal compressibility $\chi_T = \partial\rho/\partial P^*$, and consistency discrepancy.
+   - **Fluctuation & Spinodal Stability (Bhatia–Thornton)**: Response matrix ($M_{rr}, M_{cc}, M_{rc}$), spinodal eigenvalues ($\lambda_1, \lambda_2$), physical stability classification (`STABLE`, `NEAR SPINODAL MARGIN`, or `UNSTABLE`), and concentration fluctuation $S_{cc}(0)$ and $1/S_{cc}(0)$.
+   - **Structure Factor Highlights**: Total peak $S(q)_{max}$, zero-wavevector limit $S(0)$, ratio $S(0)/S(q)_{max}$, disk scaling ratio, and optical form-factor ratio $R_{01}/R_{02}$.
+4. **Summary Table**: Tabulates all computed $(\rho, x_2)$ state points with their key thermodynamic and stability indices at program termination.
