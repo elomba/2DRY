@@ -18,10 +18,6 @@ Program twoDdipRY
   !     This program solves the Ornstein-Zernike equation with RHNC closure
   !     for the pair distribution functions and thermodynamics of a
   !     two-dimensional N-component charged hard disks with ln(r) potentials.
-  !     Variations of the RHNC closure included are:
-  !       nBref = 1:  Bref=0 (HNC closure)
-  !       nBref = 2:  Bref=B(hard disk) using PC closure for Restricted Primitive Model
-  !       nBref = 3:  Bref=B(short range) for arbitrary electrolyte using PY for SR part
 
   !     NOTE: Let FTf(q;j,k) be the 2D Fourier transform of a function f(r;j,k).
   !           Then, in the program, the computed transform is
@@ -48,13 +44,13 @@ Program twoDdipRY
   real(kind=8) :: phi(0:mxNr,nsp,nsp), phiSR(0:mxNr,nsp,nsp),  phiLR(0:mxNr,nsp,nsp), &
        TphiLR(0:mxNr,nsp,nsp),   sSR(0:mxNr,nsp,nsp),    cSR(0:mxNr,nsp,nsp), &
        xFTcSR(0:mxNr,nsp,nsp),  TcSR(0:mxNr,nsp,nsp), xFTsSR(0:mxNr,nsp,nsp), &
-       sSRnew(0:mxNr,nsp,nsp),     g(0:mxNr,nsp,nsp),   Bref(0:mxNr,nsp,nsp), &
+       sSRnew(0:mxNr,nsp,nsp),     g(0:mxNr,nsp,nsp),   &
        s0(0:mxNr,nsp,nsp),    s1(0:mxNr,nsp,nsp),     s2(0:mxNr,nsp,nsp), &
        d0(0:mxNr,nsp,nsp),    d1(0:mxNr,nsp,nsp),     d2(0:mxNr,nsp,nsp), &
        sc(0:mxNr), scint(0:mxNr), sg(nsp,nsp), sgi(0:mxNr,nsp,nsp),&
        & flr(0:mxNr), tflr(0:mxNr), dphi(0:mxNr,nsp,nsp),fint(1:mxNr)
 
-  integer :: Nr, nBref, iStart, newW, n, i, j, k, l, NrIn, i2, i3, i4&
+  integer :: Nr, iStart, newW, n, i, j, k, l, NrIn, i2, i3&
        &, iter, iext, info, lcount, irho, its, nxf, ixf, nrt, inr 
   real(kind=8) :: rMax, qMax, rhoTotal, rhoTotal0,Gamma, a0, a1, a2, a3, a4, a5&
        &, sumMat, sum0, rms, a01, a02, a12, a22, a11, c1, c2, sSRng, sumtsx,&
@@ -72,7 +68,7 @@ Program twoDdipRY
   write(fname,"('2DdipHD',i1,'c_map.dat')") nsp
   write(fnameo,"('2DdipdHD',i1,'c_out.dat')") nsp
   open (2,file=fname,status='old')
-  read (2,*) Nr, nBref, iStart, newW, &
+  read (2,*) Nr, iStart, newW, &
        Gamma, blend0, rmsMax, rmscut
   if (Nr > mxNr) Then
      print *, ' ** Eror Nr > ',mxNr
@@ -95,7 +91,7 @@ Program twoDdipRY
   close (2,status='keep')
   !     Echo input parameters.
   open  (3,file=fnameo,status='unknown')
-  write (3,'(4i10/11f15.7)') Nr,  nBref, iStart, newW, &
+  write (3,'(3i10/11f15.7)') Nr,  iStart, newW, &
        Gamma, z(1:nsp)
   do i=1,nsp
      write (3,'(3i10)')Ncore(i,i:nsp)
@@ -103,7 +99,7 @@ Program twoDdipRY
   write (3,30) FTtables
   write (3,30) INfile
   write (3,30) OUTfile
-  write (*,'(4i10/11f15.7)') Nr,  nBref, iStart, newW, &
+  write (*,'(3i10/11f15.7)') Nr,  iStart, newW, &
        Gamma, z(1:nsp)
   do i=1,nsp
      write (*,'(5i10)')Ncore(i,i:nsp)
@@ -179,7 +175,7 @@ Program twoDdipRY
   !  ac = 0
   if (istart .eq. 1) then ! from existing solution.
      open (16,file=INfile,status='old')
-     read (16,70) NrIn, i2, i3, i4, &
+     read (16,70) NrIn, i2, i3, &
           a1, a2, a3, a4, a5
      do j = 1,nsp
         do k = j,nsp
@@ -189,9 +185,9 @@ Program twoDdipRY
      close (16,status='keep')
      write (3,60)
      write (*,60)
-     write (3,70) NrIn, i2, i3, i4, &
+     write (3,70) NrIn, i2, i3, &
           a1, a2, a3, a4, a5
-     write (*,70) NrIn, i2, i3, i4, &
+     write (*,70) NrIn, i2, i3, &
           a1, a2, a3, a4, a5
   else ! from SR ideal gas.
      do j = 1,nsp
@@ -203,7 +199,7 @@ Program twoDdipRY
      end do
   end if
 60 format (/' Starting from diskfile:')
-70 format (4i5/5f10.5)
+70 format (3i5/5f10.5)
   !
   ! Calculate long range functions
   !
@@ -550,8 +546,7 @@ Program twoDdipRY
               Endif
 
 
-              !     if (nBref .eq. 1) then ! calculate Helmholtz free energy in HNC approximation.
-              ! Chemical potential in the HNC approx
+                            ! Chemical potential in the HNC approx
               do j=1,nsp
                  chemp = 0.0d0
                  do k=1,nsp
@@ -652,7 +647,7 @@ Program twoDdipRY
         write (3,"(5(' z(',i1,') =',f8.4,',':))") (i,z(i),i=1,nsp)
         write (*,"(5(' z(',i1,') =',f8.4,',':))") (i,z(i),i=1,nsp)
 101     format (/' Thermodynamics of a 2D 1/r^3 using the RY equation' &
-             /' with Bref = 0 (HNC)' &
+             /' with Rogers-Young (RY) closure' &
              /' Gamma =', f8.4, ',', 5('rho(',i1,') =', f8.4,',':))
         write (3,110) pres(0), uint(0), xc(0), P10, P20
         write (*,110) P10+P20, U0, X0, P10, P20
@@ -676,7 +671,7 @@ Program twoDdipRY
 
         !     Save solution.
         open  (17,file=OUTfile,status='unknown')
-        write (17,70) Nr, Ncore(1,1), Ncore(2,2), nBref, &
+        write (17,70) Nr, Ncore(1,1), Ncore(2,2), &
              Gamma, rho(1), rho(2), z(1), z(2)
         do j = 1,nsp
            do k = j,nsp

@@ -1,4 +1,4 @@
-2500 1 0 0 0.00001 0.5 0.00001 0.00001 / ! Nr, nBref (1=HNC, 2=PC, 3=PY), iStart (0=fresh, 1=restart), newW (0=read, 1=generate ftable.dat), Gamma, blend0, rmsMax, rmscut
+2500 0 0 0.00001 0.5 0.00001 0.00001 / ! Nr, iStart (0=fresh, 1=restart), newW (0=read, 1=generate ftable.dat), Gamma, blend0, rmsMax, rmscut
 3 / ! nrt (number of discrete densities in list)
 0.2 0.4 0.6 / ! rholist(1:nrt) (discrete list of total densities rho_total)
 1 / ! nxf (number of composition points)

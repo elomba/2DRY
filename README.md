@@ -90,7 +90,7 @@ Each line corresponds to specific program variables:
 
 | Line | Parameters | Description |
 |:---:|---|---|
-| **1** | `Nr nBref iStart newW Gamma blend0 rmsMax rmscut` | Grid points ($N_r=2500$), bridge closure (1=HNC, 2=PC, 3=PY), restart flag (0=fresh, 1=restart), table flag (0=read, 1=generate `ftable.dat`), dipole coupling $\Gamma$, Picard blend, convergence thresholds |
+| **1** | `Nr iStart newW Gamma blend0 rmsMax rmscut` | Grid points ($N_r=2500$), restart flag (0=fresh, 1=restart), table flag (0=read, 1=generate `ftable.dat`), dipole coupling $\Gamma$, Picard blend, convergence thresholds |
 | **2** | `nrt` | Number of density intervals for equispaced density scan ($inr = 0, \dots, nrt$) |
 | **3** | `rtmin rtmax` | Total density scan range: $[\rho_{min}, \rho_{max}]$ |
 | **4** | `nxf` | Number of composition points ($x_2$) |
