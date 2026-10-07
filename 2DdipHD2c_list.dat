@@ -1,0 +1,13 @@
+2500 1 0 0 0.00001 0.5 0.00001 0.00001 / ! Nr, nBref (1=HNC, 2=PC, 3=PY), iStart (0=fresh, 1=restart), newW (0=read, 1=generate ftable.dat), Gamma, blend0, rmsMax, rmscut
+3 / ! nrt (number of discrete densities in list)
+0.2 0.4 0.6 / ! rholist(1:nrt) (discrete list of total densities rho_total)
+1 / ! nxf (number of composition points)
+0.5 / ! xf(1:nxf) (mole fraction of species 2; species 1 has 1-xf)
+0.0001 -0.0001 / ! z(1:nsp) (dipole moments / charges for species 1 and 2)
+100 100 / ! Ncore(1, 1:2) (core radius grid indices for 1-1 and 1-2 pairs)
+100 / ! Ncore(2, 2) (core radius grid index for 2-2 pair)
+'ftable.dat' / ! FTtables (filename for Hankel transform tables)
+'solin.dat' / ! INfile (restart input file name, read if iStart=1)
+'solout.dat' / ! OUTfile (restart output file name for converged s_SR)
+1.0 1.0 1.0 1.0 / ! lambda (1-2 cross coupling), shrink, r01, R02 (disk scattering radii)
+1.3 -0.002 0.2 .f. / ! eta (RY parameter), dsig (eta step), tol (consistency tol), osig (.t.=optimize eta, .f.=fixed)

@@ -1,0 +1,22 @@
+# Ignore tables and large data
+ftable.dat
+*.tar.gz
+*.zip
+
+# Ignore output data files
+*.dat
+!2DdipHD2c_map.dat
+!2DdipHD2c_list.dat
+
+# Ignore build artifacts and binaries
+*.o
+*.mod
+2DdipRYN_final
+2DdipRYN2
+2DdipRYNfx
+2DdipRYN
+
+# Ignore temporary and backup files
+*~
+fort.*
+resume_RY
