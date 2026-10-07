@@ -914,7 +914,7 @@ Program twoDdipRY
   write(88,"(a)") '#   [ 9] Sq_0      : Zero-wavevector limit of total structure factor S(q=0)'
   write(88,"(a)") '#   [10] Sq0/Sqmax : Long-wavelength fluctuation ratio S(0) / S(q)_max'
   write(88,"(a)") '#   [11] scale_21  : Core scaling factor (S22(0) / S11(0))^(1/4)'
-  write(88,"(a)") '#   [12] S2_ex/kB  : Excess two-body entropy per particle'
+  write(88,"(a)") '#   [12] S2_ex/kB  : Excess two-body entropy per particle (activated when eta > 3 in HNC-like regime; 0 otherwise)'
   write(88,"(a)") '#   [13] lambda1   : Minimum eigenvalue of Bhatia-Thornton fluctuation matrix (spinodal indicator, lambda1 -> 0)'
   write(88,"(a)") '#   [14] lambda2   : Maximum eigenvalue of Bhatia-Thornton fluctuation matrix'
   write(88,"(a)") '#   [15] 1/Scc(0)  : Inverse concentration fluctuation at origin (vanishes at critical demixing point)'
@@ -1454,35 +1454,58 @@ Program twoDdipRY
               do j=1,nsp
                  chemp = 0.0d0
                  do k=1,nsp
-                    sumc =0
-                    do I=1,n
+                    sumc = 0.0d0
+                    do i=1,n
                        sumc = sumc + cSR(i,j,k)*dr(i)*r(i)
-                    Enddo
-                    if (j.eq.k) Then
-                       csr0(j,k) = 2*pi*(sumc-z(j)*z(k)*Gamma*sqrt(ac*pi)/2)
+                    end do
+                    if (j == k) then
+                       csr0(j,k) = 2.0d0*pi*(sumc - z(j)*z(k)*Gamma*sqrt(ac*pi)/2.0d0)
                     else
-                       csr0(j,k) = 2*pi*(sumc-z(j)*z(k)*Gamma*lambda*sqrt(ac*pi)/2)
-                    endif
+                       csr0(j,k) = 2.0d0*pi*(sumc - z(j)*z(k)*Gamma*lambda*sqrt(ac*pi)/2.0d0)
+                    end if
 
-                    sums2 = 0
-                    sumint = 0
+                    sumint = 0.0d0
                     do i=1, n
-                       if (i.eq.Ncore(j,k)) Then
-                          sumint = sumint + 0.5*(g(i,j,k)-2)*(sSR(i,j,k)+phiLR(i,j,k))*dr(i)*r(i)
-                          sums2 = sums2 +  0.5*(g(i,j,k)*log(g(i,j,k))-g(i,j,k)+1)*dr(i)*r(i)
+                       if (i == Ncore(j,k)) then
+                          sumint = sumint + 0.5d0*(g(i,j,k)-2.0d0)*(sSR(i,j,k)+phiLR(i,j,k))*dr(i)*r(i)
                        else
-                          sumint = sumint + (g(i,j,k)-1)*(sSR(i,j,k)+phiLR(i,j,k))*dr(i)*r(i)
-                          if (i > Ncore(j,k)) sums2 = sums2 + (g(i,j,k)*log(g(i,j,k))-g(i,j,k)+1)*dr(i)*r(i)
-                       Endif
-                    Enddo
+                          sumint = sumint + (g(i,j,k)-1.0d0)*(sSR(i,j,k)+phiLR(i,j,k))*dr(i)*r(i)
+                       end if
+                    end do
                     chemp = chemp - rho(k)*csr0(j,k) + pi*rho(k)*sumint
-                 Enddo
+                 end do
                  chempot(j) = chemp
-                 if (irho == 0) Then
-                    chempot0(j) = chemp
-                    s2ex = -pi*rho(j)*rho(k)*sums2/rhoTotal0
-                 endif
-              Enddo
+                 if (irho == 0) chempot0(j) = chemp
+              end do
+
+              ! Excess two-body entropy S2_ex (activated in HNC-like regime when eta > 3)
+              if (irho == 0) then
+                 s2ex = 0.0d0
+                 if (eta > 3.0d0) then
+                    do j = 1, nsp
+                    do k = 1, nsp
+                       sums2 = 0.0d0
+                       do i = 1, n
+                          if (i == Ncore(j,k)) then
+                             if (g(i,j,k) > 1.0d-30) then
+                                sums2 = sums2 + 0.5d0*(g(i,j,k)*log(g(i,j,k)) - g(i,j,k) + 1.0d0)*dr(i)*r(i)
+                             else
+                                sums2 = sums2 + 0.5d0*dr(i)*r(i)
+                             end if
+                          else if (i > Ncore(j,k)) then
+                             if (g(i,j,k) > 1.0d-30) then
+                                sums2 = sums2 + (g(i,j,k)*log(g(i,j,k)) - g(i,j,k) + 1.0d0)*dr(i)*r(i)
+                             else
+                                sums2 = sums2 + dr(i)*r(i)
+                             end if
+                          end if
+                       end do
+                       s2ex = s2ex - pi*rho(j)*rho(k)*sums2/rhoTotal0
+                    end do
+                 end do
+                 call check_scalar('Excess two-body entropy S2_ex', 's2ex', s2ex)
+              end if
+           end if
               sumA1 = 0.0d0
               do j = 1,nsp
                  do k = 1,nsp
@@ -1704,7 +1727,13 @@ Program twoDdipRY
         write (*,"(a, f12.6)") '     - Hard-disk core contribution (Z_HD)  : ', P10
         write (*,"(a, f12.6)") '     - Dipolar interaction (Z_dip)         : ', P20
         write (*,"(a, f12.6)") '   Reduced internal energy (U / (N*kT))    : ', uint(0)
-        write (*,"(a, f12.6)") '   Excess two-body entropy (S2_ex / kB)    : ', s2ex
+        if (eta > 3.0d0) then
+           write (*,"(a, f12.6, a)") '   Excess two-body entropy (S2_ex / kB)    : ', s2ex, &
+                '  ' // c_b_green // '[Active: HNC regime (eta > 3)]' // c_reset
+        else
+           write (*,"(a, f12.6, a)") '   Excess two-body entropy (S2_ex / kB)    : ', s2ex, &
+                '  ' // c_dim // '[Inactive for eta <= 3; requires HNC regime eta > 3]' // c_reset
+        end if
         write (*,*)
         write (*,"(a)") c_b_cyan // ' Thermodynamic Consistency & Response:' // c_reset
         write (*,"(a, f12.6)") '   Rogers-Young parameter (eta)            : ', eta

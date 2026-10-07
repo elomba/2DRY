@@ -122,7 +122,7 @@ Each line corresponds to specific program variables:
   9. `Sq_0` : Zero-wavevector limit of total structure factor $S(q=0)$
   10. `Sq0/Sqmax` : Long-wavelength fluctuation ratio $S(0) / S(q)_{max}$
   11. `scale_21` : Effective core scaling factor $(S_{22}(0) / S_{11}(0))^{1/4}$
-  12. `S2_ex/kB` : Excess two-body entropy per particle $S_2^{ex} / k_B$
+  12. `S2_ex/kB` : Excess two-body entropy per particle $S_2^{ex} / k_B$ (activated in the HNC-like regime when $\eta > 3$; $0$ otherwise)
   13. `lambda1` : Minimum eigenvalue of Bhatia–Thornton fluctuation matrix ($\lambda_1 \to 0$ signals spinodal boundary)
   14. `lambda2` : Maximum eigenvalue of Bhatia–Thornton fluctuation matrix
   15. `1/Scc(0)` : Inverse concentration fluctuation at origin (vanishes at critical demixing point)

@@ -2,6 +2,20 @@
 
 All notable changes to the `twoDdipRY` package are documented in this file.
 
+## [2026-10-07] - Excess Two-Body Entropy S2 Calculation & HNC-Regime Gating
+
+### Fixed
+- **Loop Index & Mixture Accumulation Bug in S2_ex**:
+  - In the historical code, `s2ex = -pi*rho(j)*rho(k)*sums2/rhoTotal0` was positioned outside the species loop `do k=1,nsp`, leaving `k = nsp + 1 = 3`. This caused an out-of-bounds array access to `rho(3) == 0.0`, always forcing `s2ex` to evaluate to `0.000000`.
+  - Furthermore, intermediate offset states during finite-difference consistency checks (`irho = 1`) previously reset `s2ex` back to zero.
+  - Re-implemented the calculation to properly accumulate the full mixture two-body excess entropy across all species pairs $(j,k)$ exclusively on the physical state (`irho = 0`).
+
+### Changed
+- **HNC-Like Regime Activation (`eta > 3`)**:
+  - Because closed-form HNC thermodynamic relations and HNC structural limits apply when the Rogers–Young mixing parameter is large ($\eta \to \infty$, practically $\eta > 3$), the excess two-body entropy calculation is now activated when $\eta > 3.0$.
+  - When $\eta > 3.0$, $S_2^{ex}/k_B$ is evaluated and reported in `thermo.dat` (column 12) and terminal output with `[Active: HNC regime (eta > 3)]`.
+  - When $\eta \le 3.0$, $S_2^{ex}/k_B$ is set to `0.000000` with an explicit terminal indicator `[Inactive for eta <= 3; requires HNC regime eta > 3]`.
+
 ## [2026-10-07] - Publication Citations & Methodological References
 
 ### Added
